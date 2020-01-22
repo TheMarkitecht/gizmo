@@ -28,13 +28,19 @@ set -e
 # builder settings
 project=`pwd`
 optim=0
-compile="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -c  -I.  -I../jimsh"
+compile="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -c  -I.  -I../jimsh  -I/usr/include/gobject-introspection-1.0  `pkg-config --cflags gtk+-3.0`"
 link="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -ldl"
 linkSO="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -Wl,--export-dynamic  -shared"
+gtkLibs=" `pkg-config --libs gtk+-3.0`  -lgirepository-1.0"
 
 set -x
 
-gcc $compile `pkg-config --cflags gtk+-3.0` -o  main.o  main.c
-gcc $link -o  gizmo  main.o  ../jimsh/libjim.a  `pkg-config --libs gtk+-3.0`
+cd gobj-introspec
+gcc $compile -o  girepo-assertion.o  girepo-assertion.c
+gcc $link -o  girepo-assertion  girepo-assertion.o  $gtkLibs
+
+exit 0
+gcc $compile -o  main.o  main.c
+gcc $link -o  gizmo  main.o  ../jimsh/libjim.a  $gtkLibs
 
 ./gizmo  test.tcl

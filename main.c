@@ -73,6 +73,7 @@ int main (int argc, char **argv) {
     assert(itp != NULL && "couldn't create interpreter");
     Jim_RegisterCoreCommands(itp);
     Jim_InitStaticExtensions(itp);
+    //todo: package provide gizmo, so dlr pkg can detect that, and enable declaring gnome calls.
 
     // prepare GNOME.
     GtkApplication *app;
