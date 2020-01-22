@@ -35,11 +35,6 @@ gtkLibs=" `pkg-config --libs gtk+-3.0`  -lgirepository-1.0"
 
 set -x
 
-cd gobj-introspec
-gcc $compile -o  girepo-assertion.o  girepo-assertion.c
-gcc $link -o  girepo-assertion  girepo-assertion.o  $gtkLibs
-
-exit 0
 gcc $compile -o  main.o  main.c
 gcc $link -o  gizmo  main.o  ../jimsh/libjim.a  $gtkLibs
 
