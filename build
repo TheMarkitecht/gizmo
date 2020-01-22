@@ -1,0 +1,41 @@
+#!/bin/sh
+
+#  gizmo
+#  Copyright 2020 Mark Hubbard, a.k.a. "TheMarkitecht"
+#  http://www.TheMarkitecht.com
+#   
+#  Project home:  http://github.com/TheMarkitecht/gizmo
+#  gizmo is a GNOME / GTK+ 3 windowing shell for Jim Tcl (http://jim.tcl.tk/)
+#  gizmo helps you quickly develop modern cross-platform GUI apps in Tcl.
+#   
+#  This file is part of gizmo.
+#   
+#  gizmo is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#   
+#  gizmo is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU Lesser General Public License for more details.
+#   
+#  You should have received a copy of the GNU Lesser General Public License
+#  along with gizmo.  If not, see <https://www.gnu.org/licenses/>.
+
+set -e
+
+# builder settings
+project=`pwd`
+optim=0
+compile="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -c  -I.  -I../jimsh"
+link="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -ldl"
+linkSO="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -Wl,--export-dynamic  -shared"
+
+set -x
+
+gcc $compile `pkg-config --cflags gtk+-3.0` -o  main.o  main.c 
+gcc $link -o  gizmo  main.o  ../jimsh/libjim.a  `pkg-config --libs gtk+-3.0`
+
+./gizmo
+#todo: accept command line name of script.
