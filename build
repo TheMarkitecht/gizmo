@@ -36,6 +36,12 @@ gtkLibs=" `pkg-config --libs gtk+-3.0`  -lgirepository-1.0"
 set -x
 
 gcc $compile -o  main.o  main.c
-gcc $link -o  gizmo  main.o  ../jimsh/libjim.a  $gtkLibs
+gcc $compile -o  dlrNative.o  ../dlr/dlrNative-src/dlrNative.c
+gcc $link  -o gizmo  \
+    main.o  \
+    dlrNative.o  \
+    /usr/lib/x86_64-linux-gnu/libffi.a  \
+    ../jimsh/libjim.a  \
+    $gtkLibs
 
 ./gizmo  test.tcl
