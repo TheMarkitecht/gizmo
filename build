@@ -28,7 +28,9 @@ set -e
 # builder settings
 project=`pwd`
 optim=0
-compile="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -c  -I.  -I../jimsh  -I/usr/include/gobject-introspection-1.0  `pkg-config --cflags gtk+-3.0`"
+compile="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -c  \
+    -I.  -I../jimsh  -I../dlr/dlrNative-src  -I/usr/include/gobject-introspection-1.0  \
+    `pkg-config --cflags gtk+-3.0`"
 link="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -ldl"
 linkSO="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -Wl,--export-dynamic  -shared"
 gtkLibs=" `pkg-config --libs gtk+-3.0`  -lgirepository-1.0"

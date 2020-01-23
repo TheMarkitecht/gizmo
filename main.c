@@ -28,6 +28,7 @@
 
 #define JIM_EMBEDDED
 #include <jim.h>
+#include "dlrNative.h"
 
 // links to libgtk-3.so.0.2404.1
 
@@ -114,6 +115,10 @@ int main (int argc, char **argv) {
     Jim_RegisterCoreCommands(itp);
     Jim_InitStaticExtensions(itp);
     //todo: package provide gizmo, so dlr pkg can detect that, and enable declaring gnome calls.
+    if (Jim_dlrNativeInit(itp) != JIM_OK) {
+        fprintf(stderr, "%s", "couldn't init dlr\n");
+        return 1;
+    }
 
     // prepare GNOME.
     GtkApplication *app;
