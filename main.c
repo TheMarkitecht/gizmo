@@ -26,13 +26,15 @@
 #include <gtk/gtk.h>
 #include <girepository.h>
 
-#define JIM_EMBEDDED
 #include <jim.h>
 #include "dlrNative.h"
 
 // links to libgtk-3.so.0.2404.1
 
 Jim_Interp *itp;
+
+// from initgizmo.tcl
+extern int Jim_initgizmoInit(Jim_Interp *interp);
 
 //todo: bind g_free()
 
@@ -61,48 +63,6 @@ static void app_open (GApplication *application,
         }
         g_free(path);
     }
-
-    // test call thru GI
-    GIRepository *repository;
-    GError *error = NULL;
-    GIBaseInfo *base_info;
-    GIArgument in_args[5];
-    GIArgument retval;
-
-    repository = g_irepository_get_default ();
-    g_irepository_require (repository, "GLib", "2.0", 0, &error);
-    if (error)
-    {
-      g_error ("ERROR: %s\n", error->message);
-      return;
-    }
-
-    base_info = g_irepository_find_by_name (repository, "GLib", "assertion_message");
-    if (!base_info)
-    {
-      g_error ("ERROR: %s\n", "Could not find GLib.warn_message");
-      return;
-    }
-
-    in_args[0].v_pointer = (gpointer)"domain";
-    in_args[1].v_pointer = (gpointer)"glib-print.c";
-    in_args[2].v_int = 42;
-    in_args[3].v_pointer = (gpointer)"main";
-    in_args[4].v_pointer = (gpointer)"hello world";
-
-    if (!g_function_info_invoke ((GIFunctionInfo *) base_info,
-                               (const GIArgument *) &in_args,
-                               5,
-                               NULL,
-                               0,
-                               &retval,
-                               &error))
-    {
-      g_error ("ERROR: %s\n", error->message);
-      return;
-    }
-
-    g_base_info_unref (base_info);
 }
 
 int main (int argc, char **argv) {
@@ -112,15 +72,24 @@ int main (int argc, char **argv) {
         fprintf(stderr, "%s", "couldn't create interpreter\n");
         return 1;
     }
+    Jim_SetVariableStrWithStr(itp, "jim::argv0", argv[0]);
+    Jim_SetVariableStrWithStr(itp, "tcl_interactive", argc == 1 ? "1" : "0");
     Jim_RegisterCoreCommands(itp);
     Jim_InitStaticExtensions(itp);
-    //todo: package provide gizmo, so dlr pkg can detect that, and enable declaring gnome calls.
+    if (Jim_PackageProvide(itp, "gizmo", "1.0", JIM_ERRMSG))
+        return JIM_ERR;
+    if (Jim_initgizmoInit(itp) != JIM_OK) {
+        Jim_MakeErrorMessage(itp);
+        fprintf(stderr, "%s\n", Jim_GetString(Jim_GetResult(itp), NULL));
+        return 1;
+    }
     if (Jim_dlrNativeInit(itp) != JIM_OK) {
         fprintf(stderr, "%s", "couldn't init dlr\n");
         return 1;
     }
 
     // prepare GNOME.
+    //todo: disable GNOME single-instance feature.
     GtkApplication *app;
     app = gtk_application_new ("org.gtk.example", G_APPLICATION_HANDLES_OPEN);
     g_signal_connect (app, "activate", G_CALLBACK (app_activate), NULL);

@@ -27,9 +27,11 @@ set -e
 
 # builder settings
 project=`pwd`
+dlr=$project/../dlr
 optim=0
 compile="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -c  \
     -I.  -I../jimsh  -I../dlr/dlrNative-src  -I/usr/include/gobject-introspection-1.0  \
+    -DJIM_EMBEDDED  -DBUILD_GIZMO
     `pkg-config --cflags gtk+-3.0`"
 link="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -ldl"
 linkSO="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -Wl,--export-dynamic  -shared"
@@ -37,13 +39,32 @@ gtkLibs=" `pkg-config --libs gtk+-3.0`  -lgirepository-1.0"
 
 set -x
 
+# generate more C source.
+../jimsh/jimsh  ../jimsh/make-c-ext.tcl  initgizmo.tcl  > _initgizmo.c
+
+# build gizmo executable.
+gcc $compile -o  _initgizmo.o  _initgizmo.c
 gcc $compile -o  main.o  main.c
 gcc $compile -o  dlrNative.o  ../dlr/dlrNative-src/dlrNative.c
 gcc $link  -o gizmo  \
     main.o  \
+    _initgizmo.o  \
     dlrNative.o  \
     /usr/lib/x86_64-linux-gnu/libffi.a  \
     ../jimsh/libjim.a  \
     $gtkLibs
 
+# run automated tests
+cd $project
+export JIMLIB=$dlr/dlr:$dlr/dlrNative-src
 ./gizmo  test.tcl
+
+# check for memory leak
+#todo: valgrind
+exit 0
+valgrind  -q  --error-exitcode=1  --leak-check=full  --leak-resolution=high  \
+    --show-leak-kinds=definite,possible  --errors-for-leak-kinds=definite,possible  \
+    ./gizmo  test.tcl    >/dev/null
+
+
+
