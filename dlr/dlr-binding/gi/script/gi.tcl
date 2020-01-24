@@ -25,21 +25,23 @@
 # this file contains all the dlr bindings for libgirepository functions.
 # those can query GI metadata.  then gizmo scripts can call the functions that describes.
 
-alias  ::dlr::gi::callToNative  ::dlr::native::giCallToNative
+#todo: ::gi  aliases there for each GI call wrapped below.  and clean up the names.  create child namespaces e.g. ::gi::repository.
 
-# g_irepository_find_by_name is called in C instead of script because it inexplicably fails with
-# "assert typelib != null" when called by script.  but all parameters looked good in gdb then.
-alias  ::dlr::gi::findFunction  ::dlr::native::giFindFunction
-#todo: move all ::dlr::gi to ::gi, and provide aliases there for each GI call wrapped below.  and clean up the names.  create child namespaces e.g. ::gi::repository.
-
+# #################  GNOME and GI simple types  ############################
 ::dlr::typedef  int  gint
-
 ::dlr::typedef  u32  enum
+
+::dlr::typedef  enum  GIRepositoryLoadFlags
+
+# #################  GI API function bindings  ############################
+
+# g_function_info_invoke is called in C instead of script, for speed.
+alias  ::gi::callToNative  ::dlr::native::giCallToNative
 
 # this does yield the same default repo pointer as the GI lib linked at compile time, in the same process, same attempt.
 ::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_get_default  {}
+alias  ::gi::repository::get_default   ::dlr::lib::gi::g_irepository_get_default::call
 
-::dlr::typedef  enum  GIRepositoryLoadFlags
 ::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_require  {
     {in     byVal   ptr                     repository      asInt}
     {in     byPtr   ascii                   namespace       asString}
@@ -48,25 +50,38 @@ alias  ::dlr::gi::findFunction  ::dlr::native::giFindFunction
     {out    byPtr   ptr                     error           asInt}
 }
 #todo: error handling
+alias  ::gi::repository::require   ::dlr::lib::gi::g_irepository_require::call
 
-::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_find_by_name  {
-    {in     byVal   ptr                     repository      asInt}
-    {in     byPtr   ascii                   namespace       asString}
-    {in     byPtr   ascii                   name            asString}
-}
+#todo: rename giFindFunction in dlrNative, to conform to GI API names.  but not giCallToNative; its parms and behavior differ.
 
-::dlr::declareCallToNative  applyScript  gi  {gint asInt}  g_callable_info_get_n_args  {
-    {in     byVal   ptr                     callable      asInt}
-}
+# g_irepository_find_by_name is called in C instead of script because it inexplicably fails with
+# "assert typelib != null" when called by script.  but all parameters looked good in gdb then.
+alias  ::gi::repository::find_by_name  ::dlr::native::giFindFunction
+#::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_find_by_name  {
+    #{in     byVal   ptr                     repository      asInt}
+    #{in     byPtr   ascii                   namespace       asString}
+    #{in     byPtr   ascii                   name            asString}
+#}
+#alias  ::gi::repository::find_by_name   ::dlr::lib::gi::g_irepository_find_by_name::call
 
 ::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_get_c_prefix  {
     {in     byVal   ptr                     repository      asInt}
     {in     byPtr   ascii                   namespace       asString}
 }
+alias  ::gi::repository::get_c_prefix   ::dlr::lib::gi::g_irepository_get_c_prefix::call
 
 ::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_get_shared_library  {
     {in     byVal   ptr                     repository      asInt}
     {in     byPtr   ascii                   namespace       asString}
 }
+alias  ::gi::repository::get_shared_library   ::dlr::lib::gi::g_irepository_get_shared_library::call
+
+::dlr::declareCallToNative  applyScript  gi  {gint asInt}  g_callable_info_get_n_args  {
+    {in     byVal   ptr                     callable      asInt}
+}
+alias  ::gi::callable_info::get_n_args   ::dlr::lib::gi::g_callable_info_get_n_args::call
+
+# #################  add-on dlr features for GI  ############################
+
 
 #todo: when declaring gtk classes, fit them into Jim OO paradigm, all under ::gtk
