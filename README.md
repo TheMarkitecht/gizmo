@@ -20,7 +20,7 @@ Legal stuff:  see below.
 * This is the proof-of-concept version.
 * Ultra-simple build process.
 * Designed for Jim 0.79 on GNU/Linux for amd64 architecture (includes Intel CPU's).
-* Tested on Debian 10.0 with libffi6-3.2.1-9 and libgtk-3-0 (3.24.5-1).
+* Tested on Debian 10.0 with libffi6-3.2.1-9, libgirepository-1.0-1 (1.58.3-2), and libgtk-3-0 (3.24.5-1).
 * Might work well on ARM too.  Drop me a line if you've tried it!
 
 ## Requirements:

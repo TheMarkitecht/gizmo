@@ -29,8 +29,6 @@
 #include <jim.h>
 #include "dlrNative.h"
 
-// links to libgtk-3.so.0.2404.1
-
 Jim_Interp *itp;
 
 // from initgizmo.tcl

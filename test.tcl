@@ -45,6 +45,38 @@ proc bench {label  reps  script} {
     flush stdout
 }
 
+# depends on a .so symlink in the appDir.
+#todo: loadLib with an empty path to indicate one already linked.  use that lib here instead of the extra dyn loaded one.
+::dlr::loadLib  refreshMeta  gi  ./libgirepository-1.0.so
+puts Load-Done
+
+set ciP [dlr::native::findFunction  "GLib" "2.0"  assertion_message]
+puts native-find-done
+
+puts nArgs=[::dlr::lib::gi::g_callable_info_get_n_args::call $ciP]
+
+# try GI meta functions thru dlr.
+set repoP [::dlr::lib::gi::g_irepository_get_default::call]
+puts [format repoP=$::dlr::ptrFmt $repoP]
+set err 0
+#todo: upgrade from 2.0
+set tlbP [::dlr::lib::gi::g_irepository_require::call  $repoP  GLib  2.0  0  err]
+puts err=$err
+puts [format tlbP=$::dlr::ptrFmt $tlbP]
+
+set nsP [::dlr::lib::gi::g_irepository_get_c_prefix::call  $repoP  GLib]
+puts [format nsP=$::dlr::ptrFmt $nsP]
+puts namespace=[::dlr::simple::ascii::unpack-scriptPtr-asString  $nsP]
+
+set slP [::dlr::lib::gi::g_irepository_get_shared_library::call  $repoP  GLib]
+puts [format slP=$::dlr::ptrFmt $slP]
+puts sharedLibs=[::dlr::simple::ascii::unpack-scriptPtr-asString  $slP]
+
+#todo: find_by_name asserts when called thru dlr.  is it because of an earlier failure in 'require'?
+set fnInfoP [::dlr::lib::gi::g_irepository_find_by_name::call  $repoP  Glib  assertion_message]
+puts [format fnInfoP=$::dlr::ptrFmt $fnInfoP]
+exit 0
+
 # load the library binding for testLib.
 ::dlr::loadLib  refreshMeta  testLib  [file join $::appDir .. dlr testLib-src testLib.so]
 puts Load-Done
@@ -58,6 +90,7 @@ puts Load-Done
     {in     byPtr   ascii   d       asString}
 }
 puts Declare-Done
+
 # puts [join [lsort [info commands ::dlr::lib::testLib::*]] \n]
 ::dlr::lib::testLib::assertGI::call  one  two  3  four  five
 puts call-Done
