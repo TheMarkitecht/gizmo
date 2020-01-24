@@ -52,16 +52,19 @@ puts Load-Done
 
 set repoP [::dlr::lib::gi::g_irepository_get_default::call]
 
-set err 0
-#todo: upgrade from 2.0
-set tlbP [::dlr::lib::gi::g_irepository_require::call  $repoP  GLib  2.0  0  err]
-puts err=$err
+set errP 0
+set tlbP [::dlr::lib::gi::g_irepository_require::call  $repoP  GLib  2.0  0  errP]
+puts [format errP=$::dlr::ptrFmt $errP]
+assert {$errP == 0}
 puts [format tlbP=$::dlr::ptrFmt $tlbP]
 
 set fnInfoP [dlr::native::giFindFunction  $repoP  GLib  assertion_message]
 puts [format fnInfoP=$::dlr::ptrFmt $fnInfoP]
+assert {$fnInfoP != 0}
 
-puts nArgs=[::dlr::lib::gi::g_callable_info_get_n_args::call $fnInfoP]
+set nArgs [::dlr::lib::gi::g_callable_info_get_n_args::call $fnInfoP]
+puts nArgs=$nArgs
+assert {$nArgs == 5}
 exit 0
 
 # load the library binding for testLib.
