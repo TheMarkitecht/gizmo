@@ -27,7 +27,6 @@ set -e
 
 # builder settings
 project=`pwd`
-dlr=$project/../dlr
 optim=0
 compile="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -c  \
     -I.  -I../jimsh  -I../dlr/dlrNative-src  -I/usr/include/gobject-introspection-1.0  \
@@ -45,18 +44,18 @@ set -x
 # build gizmo executable.
 gcc $compile -o  _initgizmo.o  _initgizmo.c
 gcc $compile -o  main.o  main.c
-gcc $compile -o  dlrNative.o  ../dlr/dlrNative-src/dlrNative.c
+gcc $compile -o  dlrNative-src/dlrNative.o  dlrNative-src/dlrNative.c
 gcc $link  -o gizmo  \
     main.o  \
     _initgizmo.o  \
-    dlrNative.o  \
+    dlrNative-src/dlrNative.o  \
     /usr/lib/x86_64-linux-gnu/libffi.a  \
     ../jimsh/libjim.a  \
     $gtkLibs
 
 # run automated tests
 cd $project
-export JIMLIB=$dlr/dlr:$dlr/dlrNative-src
+export JIMLIB=./dlr:./dlrNative-src
 ./gizmo  test.tcl
 
 # check for memory leak

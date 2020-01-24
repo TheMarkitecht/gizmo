@@ -16,7 +16,7 @@ set solib-search-path .:..
 #r
 
 #b prepMetaBlob
-#b callToGI
+#b giCallToNative
 
 db
 db

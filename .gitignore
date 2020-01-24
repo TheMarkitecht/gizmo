@@ -5,3 +5,4 @@ gizmo
 _*.c
 _*.h
 gobj-introspec
+**/auto/
