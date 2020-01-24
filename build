@@ -55,6 +55,7 @@ gcc $link  -o gizmo  \
 
 # run automated tests
 cd $project
+#rm -rf ./dlr/dlr-binding/gi/auto  ;# this forces regeneration of libgirepository wrapper scripts.
 export JIMLIB=./dlr:./dlrNative-src
 ./gizmo  test.tcl
 

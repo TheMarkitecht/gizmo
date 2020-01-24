@@ -25,6 +25,13 @@
 # this file contains all the dlr bindings for libgirepository functions.
 # those can query GI metadata.  then gizmo scripts can call the functions that describes.
 
+alias  ::dlr::gi::callToNative  ::dlr::native::giCallToNative
+
+# g_irepository_find_by_name is called in C instead of script because it inexplicably fails with
+# "assert typelib != null" when called by script.  but all parameters looked good in gdb then.
+alias  ::dlr::gi::findFunction  ::dlr::native::giFindFunction
+#todo: move all ::dlr::gi to ::gi, and provide aliases there for each GI call wrapped below.  and clean up the names.  create child namespaces e.g. ::gi::repository.
+
 ::dlr::typedef  int  gint
 
 ::dlr::typedef  u32  enum
@@ -61,3 +68,5 @@
     {in     byVal   ptr                     repository      asInt}
     {in     byPtr   ascii                   namespace       asString}
 }
+
+#todo: when declaring gtk classes, fit them into Jim OO paradigm, all under ::gtk

@@ -45,11 +45,6 @@ proc bench {label  reps  script} {
     flush stdout
 }
 
-# depends on a libgirepository-1.0.so symlink in the appDir.
-#todo: loadLib with an empty path to indicate one already linked.  use that lib here instead of the extra dyn loaded one.
-::dlr::loadLib  refreshMeta  gi  ./libgirepository-1.0.so
-puts Load-Done
-
 set repoP [::dlr::lib::gi::g_irepository_get_default::call]
 
 set errP 0
@@ -57,8 +52,9 @@ set tlbP [::dlr::lib::gi::g_irepository_require::call  $repoP  GLib  2.0  0  err
 puts [format errP=$::dlr::ptrFmt $errP]
 assert {$errP == 0}
 puts [format tlbP=$::dlr::ptrFmt $tlbP]
+assert {$tlbP != 0}
 
-set fnInfoP [dlr::native::giFindFunction  $repoP  GLib  assertion_message]
+set fnInfoP [dlr::gi::findFunction  $repoP  GLib  assertion_message]
 puts [format fnInfoP=$::dlr::ptrFmt $fnInfoP]
 assert {$fnInfoP != 0}
 
