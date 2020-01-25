@@ -79,6 +79,7 @@ int main (int argc, char **argv) {
         fprintf(stderr, "%s", "couldn't init dlr\n");
         return MAIN_ERROR_EXIT_STATUS;
     }
+    Jim_SetVariableStr(itp, "gtk::appP", Jim_NewIntObj(itp, (jim_wide)app));
 
     // run all scripts.
     if (Jim_initgizmoInit(itp) != JIM_OK) {

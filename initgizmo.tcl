@@ -39,11 +39,19 @@ proc _gizmo_init {} {
     lappend p {*}$auto_path
     set auto_path $p
 
+    # load dlr and gi
+    package require dlr
+    if { ! $::dlr::giEnabled} {
+        error "dlr library was compiled with no GI support."
+    }
+    ::dlr::loadLib  keepMeta  gi  libgirepository-1.0.so
+
     # create main window
-    set ::gtk::mainWindowP [gtk_application_window_new (app);
-    gtk_window_set_title (GTK_WINDOW (window), "Window");
-    gtk_window_set_default_size (GTK_WINDOW (window), 200, 200);
-    gtk_widget_show_all (window);
+puts using
+    set ::gtk::mainWinP  [::gtk::gtk_application_window_new  $::gtk::appP]
+    ::gtk::gtk_window_set_title  $::gtk::mainWinP  "Main Window"
+    ::gtk::gtk_window_set_default_size  $::gtk::mainWinP  200  200
+    ::gtk::gtk_widget_show_all  $::gtk::mainWinP
 
     # run GNOME event loop.  wait for it to exit.
     # scripts named on command line run at this time.

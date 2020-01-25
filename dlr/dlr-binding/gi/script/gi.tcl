@@ -87,11 +87,14 @@ alias  ::gi::callable_info::get_n_args   ::dlr::lib::gi::g_callable_info_get_n_a
 # like ::dlr::declareCallToNative, but for GNOME calls instead (those described by GI).
 # parameters and most other metadata are obtained directly from GI and don't
 # have to be declared by script.
-# simple types and all metadata reside as usual under ::dlr and ::dlr::lib::gi-$giSpace.
+# giSpace shall always be passed in proper case, such as Gtk.
+# the equivalent libAlias shall always be derived as [string tolower $giSpace].
+# simple types and all metadata reside as usual under ::dlr and ::dlr::lib::.
 # libgirepository functions are aliased into ::gi::$class::$fnNameBare
-# features of the target native library are aliased into ::$giSpace often as Jim OO classes.
+# features of the target native library are aliased into ::$libAlias, usually as Jim OO classes.
 proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescrip  fnName  parmsDescrip} {
-    set fQal ::dlr::lib::${giSpace}::${fnName}::
+    set libAlias [string tolower $giSpace]
+    set fQal ::dlr::lib::${libAlias}::${fnName}::
 
     set err 0
     set tlbP [::dlr::lib::gi::g_irepository_require::call  $::gi::repoP  $giSpace  $version  0  err]
@@ -132,7 +135,7 @@ proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescri
         }
         set ${pQal}passMethod  $passMethod
 
-        set fullType [::dlr::qualifyTypeName $type $giSpace]
+        set fullType [::dlr::qualifyTypeName $type $libAlias]
         set ${pQal}type  $fullType
         set ${pQal}passType $( $passMethod eq {byPtr} ? {::dlr::simple::ptr} : $fullType )
         lappend typesMeta [::dlr::selectTypeMeta [get ${pQal}passType]]
@@ -162,7 +165,7 @@ proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescri
     # instead that must be left to the script app to deal with.
     set rQal ${fQal}return::
     lassign $returnTypeDescrip  type scriptForm
-    set fullType [::dlr::qualifyTypeName $type $giSpace]
+    set fullType [::dlr::qualifyTypeName $type $libAlias]
     set ${rQal}type  $fullType
     ::dlr::validateScriptForm $fullType $scriptForm
     set ${rQal}scriptForm  $scriptForm
@@ -175,15 +178,15 @@ proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescri
     }
     set rMeta [::dlr::selectTypeMeta $fullType]
 
-    if {[::dlr::refreshMeta] || ! [file readable [::dlr::callWrapperPath $giSpace $fnName]]} {
-        ::dlr::generateCallProc  $giSpace  $fnName  ::gi::callToNative
+    if {[::dlr::refreshMeta] || ! [file readable [::dlr::callWrapperPath $libAlias $fnName]]} {
+        ::dlr::generateCallProc  $libAlias  $fnName  ::gi::callToNative
     }
 
     if {$scriptAction ni {applyScript noScript}} {
         error "Invalid script action: $scriptAction"
     }
     if {$scriptAction eq {applyScript}} {
-        source [::dlr::callWrapperPath  $giSpace  $fnName]
+        source [::dlr::callWrapperPath  $libAlias  $fnName]
     }
 
     # prepare a metaBlob to hold dlrNative and FFI data structures.
@@ -194,7 +197,7 @@ proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescri
 }
 
 
-#todo: when declaring gtk classes, automatically fit them into Jim OO paradigm, all under ::gtk
+#todo: when declaring gtk classes, automatically fit them into Jim OO paradigm, all under ::Gtk
 
 # #################  finish initializing gi package  ############################
 
