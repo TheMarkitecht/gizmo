@@ -4,7 +4,7 @@
 # load the library binding for testLib.  todo: delete this hack.  and its dir in dlr-binding as well. and the testLib-src symlink.
 ::dlr::loadLib  refreshMeta  testLib  [file join $::appDir .. dlr testLib-src testLib.so]
 
-::gi::declareCallToNative  applyScript  testLib  {void}  assertGI  {
+::gi::declareCallToNative  applyScript  GLib  2.0  {void}  assertion_message  {
     {in     byPtr   ascii   a       asString}
     {in     byPtr   ascii   b       asString}
     {in     byVal   int     line    asInt}

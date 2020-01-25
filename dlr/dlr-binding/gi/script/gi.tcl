@@ -33,6 +33,8 @@ alias  ::gi::get  set ;# allows "get" as an alternative to the one-argument "set
 ::dlr::typedef  u32  enum
 
 ::dlr::typedef  enum  GIRepositoryLoadFlags
+# don't use this.  it causes all subsequent find_by_name to fail.
+set ::gi::REPOSITORY_LOAD_FLAG_LAZY $(1 << 0)
 
 # #################  GI API function bindings  ############################
 
@@ -83,17 +85,22 @@ alias  ::gi::callable_info::get_n_args   ::dlr::lib::gi::g_callable_info_get_n_a
 # #################  add-on dlr features supporting GI  ############################
 
 # like ::dlr::declareCallToNative, but for GNOME calls instead (those described by GI).
-# parameters and most other metdata are obtained directly from GI and don't
+# parameters and most other metadata are obtained directly from GI and don't
 # have to be declared by script.
-proc ::gi::declareCallToNative {scriptAction  libAlias  returnTypeDescrip  fnName  parmsDescrip} {
-    set fQal ::dlr::lib::${libAlias}::${fnName}::
+# simple types and all metadata reside as usual under ::dlr and ::dlr::lib::gi-$giSpace.
+# libgirepository functions are aliased into ::gi::$class::$fnNameBare
+# features of the target native library are aliased into ::$giSpace often as Jim OO classes.
+proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescrip  fnName  parmsDescrip} {
+    set fQal ::dlr::lib::${giSpace}::${fnName}::
 
-#todo: add parm for giNamespace.
-puts [format repoP=$::dlr::ptrFmt $::gi::repoP]
-set err 0
-set tlbP [::dlr::lib::gi::g_irepository_require::call  $::gi::repoP  GLib  2.0  0  err]
-puts err=$err
-puts [format tlbP=$::dlr::ptrFmt $tlbP]
+    set err 0
+    set tlbP [::dlr::lib::gi::g_irepository_require::call  $::gi::repoP  $giSpace  $version  0  err]
+    if {$err != 0} {
+        error "GI namespace '$giSpace' not found."
+    }
+    if {$tlbP == 0} {
+        error "GI typelib '$giSpace' not found."
+    }
 
     # get GI callable info.
     set fnInfoP [::gi::repository::find_by_name  $::gi::repoP  GLib  assertion_message]
@@ -125,7 +132,7 @@ puts [format tlbP=$::dlr::ptrFmt $tlbP]
         }
         set ${pQal}passMethod  $passMethod
 
-        set fullType [::dlr::qualifyTypeName $type $libAlias]
+        set fullType [::dlr::qualifyTypeName $type $giSpace]
         set ${pQal}type  $fullType
         set ${pQal}passType $( $passMethod eq {byPtr} ? {::dlr::simple::ptr} : $fullType )
         lappend typesMeta [::dlr::selectTypeMeta [get ${pQal}passType]]
@@ -155,7 +162,7 @@ puts [format tlbP=$::dlr::ptrFmt $tlbP]
     # instead that must be left to the script app to deal with.
     set rQal ${fQal}return::
     lassign $returnTypeDescrip  type scriptForm
-    set fullType [::dlr::qualifyTypeName $type $libAlias]
+    set fullType [::dlr::qualifyTypeName $type $giSpace]
     set ${rQal}type  $fullType
     ::dlr::validateScriptForm $fullType $scriptForm
     set ${rQal}scriptForm  $scriptForm
@@ -169,14 +176,14 @@ puts [format tlbP=$::dlr::ptrFmt $tlbP]
     set rMeta [::dlr::selectTypeMeta $fullType]
 
     if {[::dlr::refreshMeta] || ! [file readable [::dlr::callWrapperPath $libAlias $fnName]]} {
-        ::dlr::generateCallProc  $libAlias  $fnName  ::gi::callToNative
+        ::dlr::generateCallProc  $giSpace  $fnName  ::gi::callToNative
     }
 
     if {$scriptAction ni {applyScript noScript}} {
         error "Invalid script action: $scriptAction"
     }
     if {$scriptAction eq {applyScript}} {
-        source [::dlr::callWrapperPath  $libAlias  $fnName]
+        source [::dlr::callWrapperPath  $giSpace  $fnName]
     }
 
     # prepare a metaBlob to hold dlrNative and FFI data structures.
