@@ -53,17 +53,15 @@ alias  ::gi::repository::get_default   ::dlr::lib::gi::g_irepository_get_default
 #todo: error handling
 alias  ::gi::repository::require   ::dlr::lib::gi::g_irepository_require::call
 
-#todo: rename giFindFunction in dlrNative, to conform to GI API names.  but not giCallToNative; its parms and behavior differ.
-
-# g_irepository_find_by_name is called in C instead of script because it inexplicably fails with
-# "assert typelib != null" when called by script.  but all parameters looked good in gdb then.
-alias  ::gi::repository::find_by_name  ::dlr::native::giFindFunction
-#::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_find_by_name  {
-    #{in     byVal   ptr                     repository      asInt}
-    #{in     byPtr   ascii                   namespace       asString}
-    #{in     byPtr   ascii                   name            asString}
-#}
-#alias  ::gi::repository::find_by_name   ::dlr::lib::gi::g_irepository_find_by_name::call
+# returns pointer (scriptPtr integer) to a GIFunctionInfo for the given function name.
+# script is responsible for g_free'ing that pointer later.
+#todo: script is responsible for g_free'ing that pointer later.
+::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_find_by_name  {
+    {in     byVal   ptr                     repository      asInt}
+    {in     byPtr   ascii                   namespace       asString}
+    {in     byPtr   ascii                   name            asString}
+}
+alias  ::gi::repository::find_by_name   ::dlr::lib::gi::g_irepository_find_by_name::call
 
 ::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_get_c_prefix  {
     {in     byVal   ptr                     repository      asInt}
