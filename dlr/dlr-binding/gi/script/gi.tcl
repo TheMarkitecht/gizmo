@@ -175,7 +175,7 @@ proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescri
     }
     set rMeta [::dlr::selectTypeMeta $fullType]
 
-    if {[::dlr::refreshMeta] || ! [file readable [::dlr::callWrapperPath $libAlias $fnName]]} {
+    if {[::dlr::refreshMeta] || ! [file readable [::dlr::callWrapperPath $giSpace $fnName]]} {
         ::dlr::generateCallProc  $giSpace  $fnName  ::gi::callToNative
     }
 
