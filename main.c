@@ -36,14 +36,6 @@ extern int Jim_initgizmoInit(Jim_Interp *interp);
 
 //todo: bind g_free()
 
-static void app_activate (GtkApplication* app,  gpointer user_data) {
-    //todo: move to script.
-    GtkWidget *window = gtk_application_window_new (app);
-    gtk_window_set_title (GTK_WINDOW (window), "Window");
-    gtk_window_set_default_size (GTK_WINDOW (window), 200, 200);
-    gtk_widget_show_all (window);
-}
-
 static void app_open (GApplication *application,
                gpointer      files,
                gint          n_files,
@@ -64,11 +56,18 @@ static void app_open (GApplication *application,
 }
 
 int main (int argc, char **argv) {
+    const int MAIN_ERROR_EXIT_STATUS = 255;
+
+    // prepare GNOME.
+    //todo: disable GNOME single-instance feature.
+    GtkApplication* app = gtk_application_new ("org.gizmo", G_APPLICATION_HANDLES_OPEN);
+    g_signal_connect (app, "open", G_CALLBACK (app_open), NULL);
+
     // prepare Jim interp.
     itp = Jim_CreateInterp();
     if (itp == NULL) {
         fprintf(stderr, "%s", "couldn't create interpreter\n");
-        return 1;
+        return MAIN_ERROR_EXIT_STATUS;
     }
     Jim_SetVariableStrWithStr(itp, "jim::argv0", argv[0]);
     Jim_SetVariableStrWithStr(itp, "tcl_interactive", argc == 1 ? "1" : "0");
@@ -76,26 +75,25 @@ int main (int argc, char **argv) {
     Jim_InitStaticExtensions(itp);
     if (Jim_PackageProvide(itp, "gizmo", "1.0", JIM_ERRMSG))
         return JIM_ERR;
+    if (Jim_dlrNativeInit(itp) != JIM_OK) {
+        fprintf(stderr, "%s", "couldn't init dlr\n");
+        return MAIN_ERROR_EXIT_STATUS;
+    }
+
+    // run all scripts.
     if (Jim_initgizmoInit(itp) != JIM_OK) {
         Jim_MakeErrorMessage(itp);
         fprintf(stderr, "%s\n", Jim_GetString(Jim_GetResult(itp), NULL));
-        return 1;
-    }
-    if (Jim_dlrNativeInit(itp) != JIM_OK) {
-        fprintf(stderr, "%s", "couldn't init dlr\n");
-        return 1;
+        return MAIN_ERROR_EXIT_STATUS;
     }
 
-    // prepare GNOME.
-    //todo: disable GNOME single-instance feature.
-    GtkApplication *app;
-    app = gtk_application_new ("org.gtk.example", G_APPLICATION_HANDLES_OPEN);
-    g_signal_connect (app, "activate", G_CALLBACK (app_activate), NULL);
-    g_signal_connect (app, "open", G_CALLBACK (app_open), NULL);
-    int status = g_application_run (G_APPLICATION (app), argc, argv);
+    // determine process exit status.
+    jim_wide status = MAIN_ERROR_EXIT_STATUS;
+    Jim_GetWide(itp, Jim_GetResult(itp), &status);
 
     // clean up.
-    g_object_unref (app);
     Jim_FreeInterp(itp);
-    return status;
+    g_object_unref(app);
+
+    return (int)status;
 }

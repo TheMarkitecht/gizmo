@@ -57,7 +57,7 @@ alias  ::gi::repository::require   ::dlr::lib::gi::g_irepository_require::call
 
 # returns pointer (scriptPtr integer) to a GIFunctionInfo for the given function name.
 # script is responsible for g_free'ing that pointer later.
-#todo: script is responsible for g_free'ing that pointer later.
+#todo: script is responsible for g_free'ing that pointer later.  or is g_object_unref() better there?
 ::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_find_by_name  {
     {in     byVal   ptr                     repository      asInt}
     {in     byPtr   ascii                   namespace       asString}

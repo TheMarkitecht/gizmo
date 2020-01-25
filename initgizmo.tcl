@@ -39,7 +39,17 @@ proc _gizmo_init {} {
     lappend p {*}$auto_path
     set auto_path $p
 
-    return ""
+    # create main window
+    set ::gtk::mainWindowP [gtk_application_window_new (app);
+    gtk_window_set_title (GTK_WINDOW (window), "Window");
+    gtk_window_set_default_size (GTK_WINDOW (window), 200, 200);
+    gtk_widget_show_all (window);
+
+    # run GNOME event loop.  wait for it to exit.
+    # scripts named on command line run at this time.
+    set exitStatus [g_application_run (G_APPLICATION (app), argc, argv) ]
+
+    return $exitStatus
 }
 
 _gizmo_init
