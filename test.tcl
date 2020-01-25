@@ -45,38 +45,24 @@ proc bench {label  reps  script} {
     flush stdout
 }
 
-set repoP [::dlr::lib::gi::g_irepository_get_default::call]
-
+# a few simple tests of the GI API, through dlr.
 set errP 0
-set tlbP [::gi::repository::require  $repoP  GLib  2.0  0  errP]
+set tlbP [::gi::repository::require  $::gi::repoP  GLib  2.0  0  errP]
 puts [format errP=$::dlr::ptrFmt $errP]
 assert {$errP == 0}
 puts [format tlbP=$::dlr::ptrFmt $tlbP]
 assert {$tlbP != 0}
 
-set fnInfoP [::gi::repository::find_by_name  $repoP  GLib  assertion_message]
+set fnInfoP [::gi::repository::find_by_name  $::gi::repoP  GLib  assertion_message]
 puts [format fnInfoP=$::dlr::ptrFmt $fnInfoP]
 assert {$fnInfoP != 0}
 
 set nArgs [::gi::callable_info::get_n_args $fnInfoP]
 puts nArgs=$nArgs
 assert {$nArgs == 5}
-exit 0
 
-# load the library binding for testLib.
-::dlr::loadLib  refreshMeta  testLib  [file join $::appDir .. dlr testLib-src testLib.so]
-puts Load-Done
-
-# add a bogus function that we'll hijack for GI.
-::dlr::declaregiCallToNative  applyScript  testLib  {void}  assertGI  {
-    {in     byPtr   ascii   a       asString}
-    {in     byPtr   ascii   b       asString}
-    {in     byVal   int     line    asInt}
-    {in     byPtr   ascii   c       asString}
-    {in     byPtr   ascii   d       asString}
-}
-puts Declare-Done
-
-# puts [join [lsort [info commands ::dlr::lib::testLib::*]] \n]
+# test a glib call.
 ::dlr::lib::testLib::assertGI::call  one  two  3  four  five
 puts call-Done
+
+# puts [join [lsort [info commands ::dlr::lib::testLib::*]] \n]

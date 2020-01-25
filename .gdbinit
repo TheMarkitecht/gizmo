@@ -9,7 +9,7 @@ db stack -style limit 8
 file ./gizmo
 set args test.tcl
 set cwd .
-set env JIMLIB=../dlr/dlr:../dlr/dlrNative-src
+set env JIMLIB=./dlr:./dlrNative-src
 set solib-search-path .:..
 
 #b g_function_info_invoke

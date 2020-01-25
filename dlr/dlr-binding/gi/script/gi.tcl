@@ -25,6 +25,9 @@
 # this file contains all the dlr bindings for libgirepository functions.
 # those can query GI metadata.  then gizmo scripts can call the functions that describes.
 
+# script interpreter support.
+alias  ::gi::get  set ;# allows "get" as an alternative to the one-argument "set", with much clearer intent.
+
 # #################  GNOME and GI simple types  ############################
 ::dlr::typedef  int  gint
 ::dlr::typedef  u32  enum
@@ -87,7 +90,15 @@ alias  ::gi::callable_info::get_n_args   ::dlr::lib::gi::g_callable_info_get_n_a
 proc ::gi::declareCallToNative {scriptAction  libAlias  returnTypeDescrip  fnName  parmsDescrip} {
     set fQal ::dlr::lib::${libAlias}::${fnName}::
 
+#todo: add parm for giNamespace.
+puts [format repoP=$::dlr::ptrFmt $::gi::repoP]
+set err 0
+set tlbP [::dlr::lib::gi::g_irepository_require::call  $::gi::repoP  GLib  2.0  0  err]
+puts err=$err
+puts [format tlbP=$::dlr::ptrFmt $tlbP]
+
     # get GI callable info.
+    set fnInfoP [::gi::repository::find_by_name  $::gi::repoP  GLib  assertion_message]
 
     # query all metadata from GI callable.
 
@@ -116,18 +127,18 @@ proc ::gi::declareCallToNative {scriptAction  libAlias  returnTypeDescrip  fnNam
         }
         set ${pQal}passMethod  $passMethod
 
-        set fullType [qualifyTypeName $type $libAlias]
+        set fullType [::dlr::qualifyTypeName $type $libAlias]
         set ${pQal}type  $fullType
         set ${pQal}passType $( $passMethod eq {byPtr} ? {::dlr::simple::ptr} : $fullType )
-        lappend typesMeta [selectTypeMeta [get ${pQal}passType]]
+        lappend typesMeta [::dlr::selectTypeMeta [get ${pQal}passType]]
 
-        validateScriptForm $fullType $scriptForm
+        ::dlr::validateScriptForm $fullType $scriptForm
         set ${pQal}scriptForm  $scriptForm
 
         # this version uses only byVal converters, and wraps them in script for byPtr.
         # in future, the converters might be allowed to implement byPtr also, for more speed etc.
-        set ${pQal}packer   [converterName   pack $fullType byVal $scriptForm]
-        set ${pQal}unpacker [converterName unpack $fullType byVal $scriptForm]
+        set ${pQal}packer   [::dlr::converterName   pack $fullType byVal $scriptForm]
+        set ${pQal}unpacker [::dlr::converterName unpack $fullType byVal $scriptForm]
 
         if {$passMethod eq {byPtr}} {
             set ${pQal}targetNativeName  ${pQal}targetNative
@@ -146,36 +157,44 @@ proc ::gi::declareCallToNative {scriptAction  libAlias  returnTypeDescrip  fnNam
     # instead that must be left to the script app to deal with.
     set rQal ${fQal}return::
     lassign $returnTypeDescrip  type scriptForm
-    set fullType [qualifyTypeName $type $libAlias]
+    set fullType [::dlr::qualifyTypeName $type $libAlias]
     set ${rQal}type  $fullType
-    validateScriptForm $fullType $scriptForm
+    ::dlr::validateScriptForm $fullType $scriptForm
     set ${rQal}scriptForm  $scriptForm
-    set ${rQal}unpacker  [converterName unpack $fullType byVal $scriptForm]
+    set ${rQal}unpacker  [::dlr::converterName unpack $fullType byVal $scriptForm]
     # FFI requires padding the return buffer up to sizeof(ffi_arg).
     # on a big endian machine, that means unpacking from a higher address.
     set ${rQal}padding 0
     if {[get ${fullType}::size] < $::dlr::simple::ffiArg::size && $::dlr::endian eq {be}} {
         set ${rQal}padding  $($::dlr::simple::ffiArg::size - [get ${fullType}::size])
     }
-    set rMeta [selectTypeMeta $fullType]
+    set rMeta [::dlr::selectTypeMeta $fullType]
 
-    if {[refreshMeta] || ! [file readable [callWrapperPath $libAlias $fnName]]} {
-        generateCallProc  $libAlias  $fnName  ::giCallToNative
+    if {[::dlr::refreshMeta] || ! [file readable [::dlr::callWrapperPath $libAlias $fnName]]} {
+        ::dlr::generateCallProc  $libAlias  $fnName  ::gi::callToNative
     }
 
     if {$scriptAction ni {applyScript noScript}} {
         error "Invalid script action: $scriptAction"
     }
     if {$scriptAction eq {applyScript}} {
-        source [callWrapperPath  $libAlias  $fnName]
+        source [::dlr::callWrapperPath  $libAlias  $fnName]
     }
 
     # prepare a metaBlob to hold dlrNative and FFI data structures.
     # do this last, to prevent an ill-advised callToNative using half-baked metadata
     # after an error preparing the metadata.  callToNative can't happen without this metaBlob.
-    prepMetaBlob  ${fQal}meta  [::dlr::fnAddr  $fnName  $libAlias]  \
+    ::dlr::prepMetaBlob  ${fQal}meta  $fnInfoP  \
         ${rQal}native  $rMeta  $orderNative  $typesMeta  $parmFlagsList
 }
 
 
-#todo: when declaring gtk classes, fit them into Jim OO paradigm, all under ::gtk
+#todo: when declaring gtk classes, automatically fit them into Jim OO paradigm, all under ::gtk
+
+# #################  finish initializing gi package  ############################
+
+set ::gi::repoP  [::gi::repository::get_default]
+
+#todo: move this feature into a new variant ::gi::loadLib
+source  [file join [file dirname [info script]]  glib.tcl]
+source  [file join [file dirname [info script]]  gtk.tcl]
