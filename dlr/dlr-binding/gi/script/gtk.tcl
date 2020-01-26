@@ -6,7 +6,6 @@
     {in     byVal   ptr   app       asInt}
 }
 alias  ::gtk::gtk_application_window_new  ::dlr::lib::gtk::gtk_application_window_new::call
-puts declared
 
 ::gi::declareCallToNative  applyScript  Gtk  3.0  {void}  gtk_window_set_title  {
     {in     byVal   ptr     window      asInt}
