@@ -55,12 +55,21 @@ static void app_open (GApplication *application,
     }
 }
 
+static void app_activate (GtkApplication* app,  gpointer user_data) {
+    //todo: move to script.
+    GtkWidget *window = gtk_application_window_new (app);
+    gtk_window_set_title (GTK_WINDOW (window), "Window");
+    gtk_window_set_default_size (GTK_WINDOW (window), 200, 200);
+    gtk_widget_show_all (window);
+}
+
 int main (int argc, char **argv) {
     const int MAIN_ERROR_EXIT_STATUS = 255;
 
     // prepare GNOME.
     //todo: disable GNOME single-instance feature.
     GtkApplication* app = gtk_application_new ("org.gizmo", G_APPLICATION_HANDLES_OPEN);
+    g_signal_connect (app, "activate", G_CALLBACK (app_activate), NULL);
     g_signal_connect (app, "open", G_CALLBACK (app_open), NULL);
 
     // prepare Jim interp.
@@ -81,16 +90,20 @@ int main (int argc, char **argv) {
     }
     Jim_SetVariableStr(itp, "gtk::appP", Jim_NewIntObj(itp, (jim_wide)app));
 
-    // run all scripts.
+    // run gizmo init script.
     if (Jim_initgizmoInit(itp) != JIM_OK) {
         Jim_MakeErrorMessage(itp);
         fprintf(stderr, "%s\n", Jim_GetString(Jim_GetResult(itp), NULL));
         return MAIN_ERROR_EXIT_STATUS;
     }
-
     // determine process exit status.
-    jim_wide status = MAIN_ERROR_EXIT_STATUS;
-    Jim_GetWide(itp, Jim_GetResult(itp), &status);
+    //todo: remove if g_application_run will be called from C.
+    //jim_wide status = MAIN_ERROR_EXIT_STATUS;
+    //Jim_GetWide(itp, Jim_GetResult(itp), &status);
+
+    // run GNOME event loop.  wait for it to exit.
+    // scripts named on command line run at this time.
+    int status = g_application_run (G_APPLICATION (app), argc, argv);
 
     // clean up.
     Jim_FreeInterp(itp);

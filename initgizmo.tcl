@@ -46,8 +46,9 @@ proc _gizmo_init {} {
     }
     ::dlr::loadLib  keepMeta  gi  libgirepository-1.0.so
 
+return 0
     # create main window
-puts using
+    #todo: move to app_activate handler so it runs safely.
     set ::gtk::mainWinP  [::gtk::gtk_application_window_new  $::gtk::appP]
     ::gtk::gtk_window_set_title  $::gtk::mainWinP  "Main Window"
     ::gtk::gtk_window_set_default_size  $::gtk::mainWinP  200  200
