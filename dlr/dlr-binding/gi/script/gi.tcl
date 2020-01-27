@@ -128,7 +128,7 @@ proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescri
             error "Invalid direction of flow was given."
         }
         set ${pQal}dir  $dir
-        lappend parmFlagsList $::dlr::directionFlags($dir)
+        lappend parmFlagsList $::dlr::dlrFlags(dir_$dir)
 
         if {$passMethod ni $::dlr::passMethods} {
             error "Invalid passMethod was given."
@@ -196,6 +196,99 @@ proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescri
         ${rQal}native  $rMeta  $orderNative  $typesMeta  $parmFlagsList
 }
 
+proc ::gi::declareSignalHandler {scriptAction  giSpace  version  returnTypeDescrip  fnName  parmsDescrip} {
+    set libAlias [string tolower $giSpace]
+    set fQal ::dlr::lib::${libAlias}::${fnName}::
+
+    set err 0
+    set tlbP [::dlr::lib::gi::g_irepository_require::call  $::gi::repoP  $giSpace  $version  0  err]
+    if {$err != 0} {
+        error "GI namespace '$giSpace' not found."
+    }
+    if {$tlbP == 0} {
+        error "GI typelib '$giSpace' not found."
+    }
+
+    # get GI callable info.
+    set fnInfoP [::gi::repository::find_by_name  $::gi::repoP  GLib  assertion_message]
+
+    # query all metadata from GI callable.
+
+    # pass callable info to prepMetaBlob
+
+    # memorize metadata for parms.
+    set order [list]
+    set orderNative [list]
+    set typesMeta [list]
+    set parmFlagsList [list]
+    foreach parmDesc $parmsDescrip {
+        lassign $parmDesc  dir  passMethod  type  name  scriptForm
+        set pQal ${fQal}parm::${name}::
+
+        lappend order $name
+        lappend orderNative ${pQal}native
+
+        if {$dir ni $::dlr::directions} {
+            error "Invalid direction of flow was given."
+        }
+        set ${pQal}dir  $dir
+        lappend parmFlagsList $::dlr::dlrFlags(dir_$dir)
+
+        if {$passMethod ni $::dlr::passMethods} {
+            error "Invalid passMethod was given."
+        }
+        set ${pQal}passMethod  $passMethod
+
+        set fullType [::dlr::qualifyTypeName $type $libAlias]
+        set ${pQal}type  $fullType
+        set ${pQal}passType $( $passMethod eq {byPtr} ? {::dlr::simple::ptr} : $fullType )
+        lappend typesMeta [::dlr::selectTypeMeta [get ${pQal}passType]]
+
+        ::dlr::validateScriptForm $fullType $scriptForm
+        set ${pQal}scriptForm  $scriptForm
+
+        # this version uses only byVal converters, and wraps them in script for byPtr.
+        # in future, the converters might be allowed to implement byPtr also, for more speed etc.
+        set ${pQal}packer   [::dlr::converterName   pack $fullType byVal $scriptForm]
+        set ${pQal}unpacker [::dlr::converterName unpack $fullType byVal $scriptForm]
+
+        if {$passMethod eq {byPtr}} {
+            set ${pQal}targetNativeName  ${pQal}targetNative
+        }
+    }
+    set ${fQal}parmOrder        $order
+    set ${fQal}parmOrderNative  $orderNative
+    # parmOrderNative is also derived and memorized here, along with the rest,
+    # in case the app needs to change it before using generateCallProc.
+
+    # memorize metadata for return value.
+    # it does not support other variable names for the native value, since that's generally hidden from scripts anyway.
+    # it's always "out byVal" but does support different types and scriptForms.
+    # it's not practical to support "out byPtr" here because there are many variations of
+    # how the pointer's target was allocated, who is responsible for freeing that ram, etc.
+    # instead that must be left to the script app to deal with.
+    set rQal ${fQal}return::
+    lassign $returnTypeDescrip  type scriptForm
+    set fullType [::dlr::qualifyTypeName $type $libAlias]
+    set ${rQal}type  $fullType
+    ::dlr::validateScriptForm $fullType $scriptForm
+    set ${rQal}scriptForm  $scriptForm
+    set ${rQal}unpacker  [::dlr::converterName unpack $fullType byVal $scriptForm]
+    # FFI requires padding the return buffer up to sizeof(ffi_arg).
+    # on a big endian machine, that means unpacking from a higher address.
+    set ${rQal}padding 0
+    if {[get ${fullType}::size] < $::dlr::simple::ffiArg::size && $::dlr::endian eq {be}} {
+        set ${rQal}padding  $($::dlr::simple::ffiArg::size - [get ${fullType}::size])
+    }
+    set rMeta [::dlr::selectTypeMeta $fullType]
+
+    # prepare a metaBlob to hold dlrNative and FFI data structures.
+    # do this last, to prevent an ill-advised callToNative using half-baked metadata
+    # after an error preparing the metadata.  callToNative can't happen without this metaBlob.
+    ::dlr::prepMetaBlob  ${fQal}meta  $fnInfoP  \
+        ${rQal}native  $rMeta  $orderNative  $typesMeta  $parmFlagsList
+}
+
 
 #todo: when declaring gtk classes, automatically fit them into Jim OO paradigm, all under ::Gtk
 
@@ -204,5 +297,6 @@ proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescri
 set ::gi::repoP  [::gi::repository::get_default]
 
 #todo: move this feature into a new variant ::gi::loadLib
+#todo: make ::gi::loadLib take the giSpace version number so it's not repeated in each declaration.
 source  [file join [file dirname [info script]]  glib.tcl]
 source  [file join [file dirname [info script]]  gtk.tcl]

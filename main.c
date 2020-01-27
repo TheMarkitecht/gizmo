@@ -47,7 +47,7 @@ static void app_activate (GtkApplication* app,  gpointer user_data) {
     gtk_window_set_default_size (GTK_WINDOW (mainWin), 200, 200);
     gtk_widget_show_all (mainWin);
 }
-/*
+
 static void app_open (GApplication *application,
                gpointer      files,
                gint          n_files,
@@ -70,7 +70,7 @@ static void app_open (GApplication *application,
         }
         g_free(path);
     }
-}  */
+}
 
 void marshalMyClosure (GClosure *closure, GValue *return_value,
     guint n_param_values, const GValue *param_values,
@@ -170,12 +170,17 @@ int main (int argc, char **argv) {
         G_APPLICATION_HANDLES_OPEN | G_APPLICATION_NON_UNIQUE);
     printf("app=%p\n", app);
     g_signal_connect (app, "activate", G_CALLBACK (app_activate), NULL);
-    //g_signal_connect (app, "open", G_CALLBACK (app_open), NULL);
+    g_signal_connect (app, "open", G_CALLBACK (app_open), NULL);
+
+/*
     MyClosure* clos = my_closure_new(NULL);
     if (g_signal_connect_closure (app, "open", (GClosure*)clos, 0) == 0) {
         fprintf(stderr, "%s", "couldn't connect to 'open' signal\n");
         return MAIN_ERROR_EXIT_STATUS;
     }
+*/
+
+
     // prepare Jim interp.
     itp = Jim_CreateInterp();
     if (itp == NULL) {

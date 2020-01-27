@@ -50,19 +50,22 @@ proc _gizmo_init {} {
     }
     ::dlr::loadLib  keepMeta  gi  libgirepository-1.0.so
 
+    set disabled {
+        # create main window
+        #todo: move to app_activate handler so it runs safely.
+        set ::gtk::mainWinP  [::gtk::gtk_application_window_new  $::gtk::appP]
+        ::gtk::gtk_window_set_title  $::gtk::mainWinP  "Main Window"
+        ::gtk::gtk_window_set_default_size  $::gtk::mainWinP  200  200
+        ::gtk::gtk_widget_show_all  $::gtk::mainWinP
+
+        # run GNOME event loop.  wait for it to exit.
+        # scripts named on command line run at this time.
+        set exitStatus [g_application_run (G_APPLICATION (app), argc, argv) ]
+
+        return $exitStatus
+    }
+
 return 0
-    # create main window
-    #todo: move to app_activate handler so it runs safely.
-    set ::gtk::mainWinP  [::gtk::gtk_application_window_new  $::gtk::appP]
-    ::gtk::gtk_window_set_title  $::gtk::mainWinP  "Main Window"
-    ::gtk::gtk_window_set_default_size  $::gtk::mainWinP  200  200
-    ::gtk::gtk_widget_show_all  $::gtk::mainWinP
-
-    # run GNOME event loop.  wait for it to exit.
-    # scripts named on command line run at this time.
-    set exitStatus [g_application_run (G_APPLICATION (app), argc, argv) ]
-
-    return $exitStatus
 }
 
 _gizmo_init
