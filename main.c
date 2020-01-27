@@ -25,6 +25,8 @@
 
 #include <gtk/gtk.h>
 #include <girepository.h>
+#include <glib-object.h>
+#include <gobject/gvaluecollector.h>
 
 #include <jim.h>
 #include "dlrNative.h"
@@ -44,7 +46,7 @@ static void app_activate (GtkApplication* app,  gpointer user_data) {
     gtk_window_set_default_size (GTK_WINDOW (mainWin), 200, 200);
     gtk_widget_show_all (mainWin);
 }
-
+/*
 static void app_open (GApplication *application,
                gpointer      files,
                gint          n_files,
@@ -67,6 +69,67 @@ static void app_open (GApplication *application,
         }
         g_free(path);
     }
+}  */
+
+void marshalMyClosure (GClosure     *closure,
+                              GValue       *return_value,
+                              guint         n_param_values,
+                              const GValue *param_values,
+                              gpointer      invocation_hint,
+                              gpointer      marshal_data)
+{
+    printf("marshal!\n");
+
+    /*
+  typedef void (*GMarshalFunc_VOID__INT) (gpointer     data1,
+                                          gint         arg_1,
+                                          gpointer     data2);
+  register GMarshalFunc_VOID__INT callback;
+  register GCClosure *cc = (GCClosure*) closure;
+  register gpointer data1, data2;
+
+  g_return_if_fail (n_param_values == 2);
+
+  data1 = g_value_peek_pointer (param_values + 0);
+  data2 = closure->data;
+
+  callback = (GMarshalFunc_VOID__INT) (marshal_data ? marshal_data : cc->callback);
+
+  callback (data1,
+            g_marshal_value_peek_int (param_values + 1),
+            data2);
+            */
+}
+
+// GObject closure
+typedef struct _MyClosure MyClosure;
+struct _MyClosure
+{
+  GClosure closure;
+  // extra data goes here
+};
+
+/*
+static void my_closure_finalize (gpointer  notify_data, GClosure *closure)
+{
+  MyClosure *my_closure = (MyClosure *)closure;
+  // free extra data here
+}  */
+
+MyClosure *my_closure_new (gpointer data)
+{
+  GClosure *closure;
+  MyClosure *my_closure;
+
+  closure = g_closure_new_simple (sizeof (MyClosure), data);
+  my_closure = (MyClosure *) closure;
+
+g_closure_set_marshal(closure, marshalMyClosure);
+
+  // initialize extra data here
+
+  //g_closure_add_finalize_notifier (closure, notify_data, my_closure_finalize);
+  return my_closure;
 }
 
 int main (int argc, char **argv) {
@@ -76,8 +139,12 @@ int main (int argc, char **argv) {
     GtkApplication* app = gtk_application_new ("org.gizmo",
         G_APPLICATION_HANDLES_OPEN | G_APPLICATION_NON_UNIQUE);
     g_signal_connect (app, "activate", G_CALLBACK (app_activate), NULL);
-    g_signal_connect (app, "open", G_CALLBACK (app_open), NULL);
-
+    //g_signal_connect (app, "open", G_CALLBACK (app_open), NULL);
+    MyClosure* clos = my_closure_new(NULL);
+    if (g_signal_connect_closure (app, "open", (GClosure*)clos, 0) == 0) {
+        fprintf(stderr, "%s", "couldn't connect to 'open' signal\n");
+        return MAIN_ERROR_EXIT_STATUS;
+    }
     // prepare Jim interp.
     itp = Jim_CreateInterp();
     if (itp == NULL) {
