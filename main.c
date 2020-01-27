@@ -31,6 +31,7 @@
 #include <jim.h>
 #include "dlrNative.h"
 
+//todo: eliminate this global; pass itp everywhere to allow for reentrance.
 Jim_Interp* itp;
 GtkWidget* mainWin;
 
@@ -71,27 +72,43 @@ static void app_open (GApplication *application,
     }
 }  */
 
-void marshalMyClosure (GClosure     *closure,
-                              GValue       *return_value,
-                              guint         n_param_values,
-                              const GValue *param_values,
-                              gpointer      invocation_hint,
-                              gpointer      marshal_data)
+void marshalMyClosure (GClosure *closure, GValue *return_value,
+    guint n_param_values, const GValue *param_values,
+    gpointer invocation_hint, gpointer marshal_data)
 {
-    // explore
-    printf("marshal!\n");
-    printf("n_param_values=%u\n", n_param_values);
-    for (guint i = 0; i < n_param_values; i++) {
-        printf("type=%s\n", G_VALUE_TYPE_NAME(param_values + i));
-        GObject *p = g_value_peek_pointer (param_values + i);
-        printf("    ptr=%p\n", p);
-        GValue b = G_VALUE_INIT;
-        g_value_init (&b, G_TYPE_STRING);
-        if (g_value_transform (param_values + i, &b)) {
-            printf ("    value=%s\n", g_value_get_string (&b));
-        }
-    }
+    // dlr conversions of GValues, in order of preference:
+    // pointer asInt
+    // integers asInt
+    // floating point asDouble
+    // bool asInt
+    // all others ascii asString
 
+    Jim_Obj* objv = Jim_NewListObj(itp, NULL, 0);
+    Jim_ListAppendElement(itp, objv, Jim_NewStringObj(itp, "::gi::handleSignal", -1));
+    //todo: extract signal name.
+
+    printf("n_param_values=%u\n", n_param_values);
+    const GValue* gvP = param_values;
+    for (guint i = 0; i < n_param_values; i++, gvP++) {
+        Jim_Obj* o = NULL;
+        printf("type=%s\n", G_VALUE_TYPE_NAME(gvP));
+        //todo: skip all these runtime checks by configuring each conversion in advance, from GI metadata.
+        GType typ = G_VALUE_TYPE(gvP);
+        if (G_TYPE_IS_CLASSED(typ) || G_VALUE_HOLDS_POINTER(gvP)) {
+            o = Jim_NewIntObj(itp, (jim_wide)g_value_peek_pointer(gvP));
+        } else if (G_VALUE_HOLDS_INT(gvP)) {
+            o = Jim_NewIntObj(itp, (jim_wide)g_value_get_int(gvP));
+        } else {
+            GValue b = G_VALUE_INIT;
+            g_value_init (&b, G_TYPE_STRING);
+            g_return_if_fail(g_value_transform(gvP, &b));
+            //todo: extract string length from GValue struct to avoid paying for another length scan here.
+            o = Jim_NewStringObj(itp, g_value_get_string(&b), -1);
+        }
+        Jim_ListAppendElement(itp, objv, o);
+    }
+    //todo: cope with files array.
+/*
     // extract numFiles.
     GValue numFilesV = G_VALUE_INIT;
     g_value_init (&numFilesV, G_TYPE_INT);
@@ -106,26 +123,12 @@ void marshalMyClosure (GClosure     *closure,
         printf("file=%s\n", path);
         g_free(path);
     }
+*/
 
-    /*
-  typedef void (*GMarshalFunc_VOID__INT) (gpointer     data1,
-                                          gint         arg_1,
-                                          gpointer     data2);
-  register GMarshalFunc_VOID__INT callback;
-  register GCClosure *cc = (GCClosure*) closure;
-  register gpointer data1, data2;
-
-  g_return_if_fail (n_param_values == 2);
-
-  data1 = g_value_peek_pointer (param_values + 0);
-  data2 = closure->data;
-
-  callback = (GMarshalFunc_VOID__INT) (marshal_data ? marshal_data : cc->callback);
-
-  callback (data1,
-            g_marshal_value_peek_int (param_values + 1),
-            data2);
-            */
+    // using the list's internalRep should run slightly faster than Jim_EvalObjList().
+    int result = Jim_EvalObjVector(itp, objv->internalRep.listValue.len, objv->internalRep.listValue.ele);
+    g_return_if_fail(result == JIM_OK || result == JIM_RETURN);
+    //todo: marshal interp's return value back to *return_value.
 }
 
 // GObject closure

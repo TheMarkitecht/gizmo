@@ -7,6 +7,10 @@ proc ::jim::neutralizeDirSeparators {path} {
     return [string map [list $::tcl_platform(dirSeparator) / ] $path]
 }
 
+proc ::gi::handleSignal {args} {
+    puts "handleSignal: [llength $args] args:\n    '[join $args "'\n    '" ]'"
+}
+
 proc _gizmo_init {} {
     rename _gizmo_init {}
     global jim::exe jim::argv0 tcl_interactive auto_path tcl_platform
