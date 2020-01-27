@@ -78,7 +78,34 @@ void marshalMyClosure (GClosure     *closure,
                               gpointer      invocation_hint,
                               gpointer      marshal_data)
 {
+    // explore
     printf("marshal!\n");
+    printf("n_param_values=%u\n", n_param_values);
+    for (guint i = 0; i < n_param_values; i++) {
+        printf("type=%s\n", G_VALUE_TYPE_NAME(param_values + i));
+        GObject *p = g_value_peek_pointer (param_values + i);
+        printf("    ptr=%p\n", p);
+        GValue b = G_VALUE_INIT;
+        g_value_init (&b, G_TYPE_STRING);
+        if (g_value_transform (param_values + i, &b)) {
+            printf ("    value=%s\n", g_value_get_string (&b));
+        }
+    }
+
+    // extract numFiles.
+    GValue numFilesV = G_VALUE_INIT;
+    g_value_init (&numFilesV, G_TYPE_INT);
+    g_return_if_fail(g_value_transform(param_values + 2, &numFilesV) > 0);
+    gint numFiles = g_value_get_int (&numFilesV);
+    printf ("numFiles=%d\n", numFiles);
+
+    // extract filenames.
+    GFile** files = g_value_peek_pointer (param_values + 1);
+    for (int i = 0; i < numFiles; i++) {
+        char* path = g_file_get_path(G_FILE(files[i]));
+        printf("file=%s\n", path);
+        g_free(path);
+    }
 
     /*
   typedef void (*GMarshalFunc_VOID__INT) (gpointer     data1,
@@ -138,6 +165,7 @@ int main (int argc, char **argv) {
     // prepare GNOME.
     GtkApplication* app = gtk_application_new ("org.gizmo",
         G_APPLICATION_HANDLES_OPEN | G_APPLICATION_NON_UNIQUE);
+    printf("app=%p\n", app);
     g_signal_connect (app, "activate", G_CALLBACK (app_activate), NULL);
     //g_signal_connect (app, "open", G_CALLBACK (app_open), NULL);
     MyClosure* clos = my_closure_new(NULL);
