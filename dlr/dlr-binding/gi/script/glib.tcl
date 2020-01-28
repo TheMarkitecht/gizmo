@@ -1,7 +1,7 @@
 
 # this file contains bindings for glib.
 
-alias  ::glib::free   dlr::native::giFreeHeap
+alias  ::g::free   dlr::native::giFreeHeap
 
 ::gi::declareStructType  applyScript  GLib  GError  {
     {GQuark     domain      asInt}
@@ -9,9 +9,9 @@ alias  ::glib::free   dlr::native::giFreeHeap
     {ptr        message     asInt}
 }
 
-proc ::glib::throwGError {errP} {
+proc ::g::checkGError {errP} {
     if {$errP != 0} {
-        set err [::dlr::struct::unpack-scriptPtr  asDict  ::dlr::lib::glib::struct::GError  $errP]
+        set err [::dlr::lib::g::struct::GError::unpack-scriptPtr-asDict  $errP]
         error "GError: [::dlr::simple::ascii::unpack-scriptPtr-asString $err(message)]"
     }
 }

@@ -52,7 +52,7 @@ set ::gi::REPOSITORY_LOAD_FLAG_LAZY $(1 << 0)
 
 # g_function_info_invoke is called in C instead of script, for speed.
 alias  ::gi::callToNative  ::dlr::native::giCallToNative
-# glib::free has to be declared here to be available for GI calls' memory management.
+# gi::free has to be declared here to be available for GI calls' memory management.
 # binding it in C also makes it faster than binding in script.
 alias  ::gi::free   dlr::native::giFreeHeap
 
@@ -135,19 +135,22 @@ alias  ::gi::base_info::get_name   ::dlr::lib::gi::g_base_info_get_name::callMan
 
 # #################  add-on dlr features supporting GI  ############################
 
-# equivalent to ascii::unpack-scriptPtr-asString followed by ::glib::free.
+proc ::gi::giSpaceToLibAlias {giSpace} {
+    set a [string tolower $giSpace]
+    if {[string match *lib $a]} {
+        return [string range $a 0 end-3]
+    }
+}
+
+# equivalent to ascii::unpack-scriptPtr-asString followed by ::gi::free.
 proc ::gi::ascii::unpack-scriptPtr-asString-free {pointerIntValue} {
-puts [format  repo=$::dlr::ptrFmt  $::gi::repoP]
-puts [format  pointerIntValue=$::dlr::ptrFmt  $pointerIntValue]
     set unpackedData [::dlr::simple::ascii::unpack-scriptPtr-asString $pointerIntValue]
-puts [format  pointerIntValue=$::dlr::ptrFmt  $pointerIntValue]
-flush stdout
-    ::glib::free $pointerIntValue
+    ::gi::free $pointerIntValue
     return $unpackedData
 }
 
 proc ::gi::declareStructType {scriptAction  giSpace  structTypeName  membersDescrip} {
-    set libAlias [string tolower $giSpace]
+    set libAlias [giSpaceToLibAlias $giSpace]
     ::dlr::declareStructType $scriptAction  $libAlias  $structTypeName  $membersDescrip
     #todo: fetch struct members from GI so they don't have to be declared.
 }
@@ -156,13 +159,14 @@ proc ::gi::declareStructType {scriptAction  giSpace  structTypeName  membersDesc
 # parameters and most other metadata are obtained directly from GI and don't
 # have to be declared by script.
 # giSpace shall always be passed to ::gi::declareCallToNative in proper case, such as Gtk.
-# the equivalent libAlias shall always be derived as [string tolower $giSpace].
+# the equivalent libAlias shall always be derived as [string tolower $giSpace], with
+# any "lib" suffix removed from the end.  use giSpaceToLibAlias for that.
 # that's the version that shall always be passed to ::dlr::declareCallToNative.
 # simple types and all metadata reside as usual under ::dlr and ::dlr::lib::.
 # libgirepository functions are aliased into ::gi::$class::$fnNameBare
 # features of the target native library are aliased into ::$libAlias, usually as Jim OO classes.
 proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescrip  fnName  parmsDescrip} {
-    set libAlias [string tolower $giSpace]
+    set libAlias [giSpaceToLibAlias $giSpace]
     set fQal ::dlr::lib::${libAlias}::${fnName}::
 
     set err 0
@@ -266,7 +270,7 @@ proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescri
 }
 
 proc ::gi::declareSignalHandler {scriptAction  giSpace  version  returnTypeDescrip  fnName  parmsDescrip} {
-    set libAlias [string tolower $giSpace]
+    set libAlias [giSpaceToLibAlias $giSpace]
     set fQal ::dlr::lib::${libAlias}::${fnName}::
 
     set err 0
