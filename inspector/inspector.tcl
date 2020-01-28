@@ -41,6 +41,7 @@ proc loadSpace {giSpace  giSpaceVersion} {
 proc allInfos {} {
     puts "allInfos  space=$::giSpace"
     set nInfos [::gi::repository::get_n_infos  $::gi::repoP  $::giSpace]
+    set ptrs [list]
     loop i 0 $nInfos {
         lappend ptrs [::gi::repository::get_info  $::gi::repoP  $::giSpace  $i]
     }
@@ -65,6 +66,6 @@ if {$::argc == 2} {
 
 # dump all available infos
 foreach infoP [allInfos] {
-    set tn [::gi::info_type_to_string [::gi::base_info::get_name $infoP]]
-    puts "info name=[::gi::base_info::get_name $infoP] type=$tn"
+    set tn [::gi::info_type_to_string [::gi::base_info::get_type $infoP]]
+    puts [format  %10s:%s  $tn  [::gi::base_info::get_name $infoP]]
 }

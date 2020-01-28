@@ -18,6 +18,7 @@ Legal stuff:  see below.
 ## Features of This Version:
 
 * This is the proof-of-concept version.
+* GLib and GI binding scripts in **gizmo** also work in an ordinary jimsh with dlr.  Just avoid Gtk since there's no GUI linkage in jimsh with dlr.
 * Ultra-simple build process.
 * Designed for Jim 0.79 on GNU/Linux for amd64 architecture (includes Intel CPU's).
 * Tested on Debian 10.0 with libffi6-3.2.1-9, libgirepository-1.0-1 (1.58.3-2), and libgtk-3-0 (3.24.5-1).

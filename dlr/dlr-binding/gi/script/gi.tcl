@@ -52,6 +52,9 @@ set ::gi::REPOSITORY_LOAD_FLAG_LAZY $(1 << 0)
 
 # g_function_info_invoke is called in C instead of script, for speed.
 alias  ::gi::callToNative  ::dlr::native::giCallToNative
+# glib::free has to be declared here to be available for GI calls' memory management.
+# binding it in C also makes it faster than binding in script.
+alias  ::gi::free   dlr::native::giFreeHeap
 
 # this does yield the same default repo pointer as the GI lib linked at compile time, in the same process, same attempt.
 ::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_get_default  {}
@@ -115,14 +118,33 @@ alias  ::gi::base_info::get_type   ::dlr::lib::gi::g_base_info_get_type::call
 ::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_info_type_to_string  {
     {in     byVal   enum                    type      asInt}
 }
-alias  ::gi::info_type_to_string   ::dlr::lib::gi::g_info_type_to_string::call
+proc  ::dlr::lib::gi::g_info_type_to_string::callManaged {type} {
+    return [::dlr::simple::ascii::unpack-scriptPtr-asString  \
+        [::dlr::lib::gi::g_info_type_to_string::call $type]]
+}
+alias  ::gi::info_type_to_string   ::dlr::lib::gi::g_info_type_to_string::callManaged
 
 ::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_base_info_get_name  {
     {in     byVal   ptr                     info      asInt}
 }
-alias  ::gi::base_info::get_name   ::dlr::lib::gi::g_base_info_get_name::call
+proc  ::dlr::lib::gi::g_base_info_get_name::callManaged {info} {
+    return [::dlr::simple::ascii::unpack-scriptPtr-asString  \
+        [::dlr::lib::gi::g_base_info_get_name::call $info]]
+}
+alias  ::gi::base_info::get_name   ::dlr::lib::gi::g_base_info_get_name::callManaged
 
 # #################  add-on dlr features supporting GI  ############################
+
+# equivalent to ascii::unpack-scriptPtr-asString followed by ::glib::free.
+proc ::gi::ascii::unpack-scriptPtr-asString-free {pointerIntValue} {
+puts [format  repo=$::dlr::ptrFmt  $::gi::repoP]
+puts [format  pointerIntValue=$::dlr::ptrFmt  $pointerIntValue]
+    set unpackedData [::dlr::simple::ascii::unpack-scriptPtr-asString $pointerIntValue]
+puts [format  pointerIntValue=$::dlr::ptrFmt  $pointerIntValue]
+flush stdout
+    ::glib::free $pointerIntValue
+    return $unpackedData
+}
 
 proc ::gi::declareStructType {scriptAction  giSpace  structTypeName  membersDescrip} {
     set libAlias [string tolower $giSpace]
@@ -133,8 +155,9 @@ proc ::gi::declareStructType {scriptAction  giSpace  structTypeName  membersDesc
 # like ::dlr::declareCallToNative, but for GNOME calls instead (those described by GI).
 # parameters and most other metadata are obtained directly from GI and don't
 # have to be declared by script.
-# giSpace shall always be passed in proper case, such as Gtk.
+# giSpace shall always be passed to ::gi::declareCallToNative in proper case, such as Gtk.
 # the equivalent libAlias shall always be derived as [string tolower $giSpace].
+# that's the version that shall always be passed to ::dlr::declareCallToNative.
 # simple types and all metadata reside as usual under ::dlr and ::dlr::lib::.
 # libgirepository functions are aliased into ::gi::$class::$fnNameBare
 # features of the target native library are aliased into ::$libAlias, usually as Jim OO classes.

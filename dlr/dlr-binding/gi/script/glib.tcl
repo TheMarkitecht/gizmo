@@ -1,6 +1,8 @@
 
 # this file contains bindings for glib.
 
+alias  ::glib::free   dlr::native::giFreeHeap
+
 ::gi::declareStructType  applyScript  GLib  GError  {
     {GQuark     domain      asInt}
     {gint       code        asInt}

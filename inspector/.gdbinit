@@ -7,7 +7,7 @@ db assembly -style context 5
 db stack -style limit 8
 
 file ./jimsh
-set args inspector.tcl
+set args  inspector.tcl  GLib  2.0
 set cwd .
 set env JIMLIB=../dlr:../dlrNative-src
 set solib-search-path .:..
