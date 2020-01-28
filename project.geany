@@ -28,16 +28,16 @@ long_line_behaviour=1
 long_line_column=72
 
 [files]
-current_page=2
+current_page=6
 FILE_NAME_0=6043;C;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fmain.c;0;4
 FILE_NAME_1=1630;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Finitgizmo.tcl;0;4
-FILE_NAME_2=2211;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Finspector%2Finspector.tcl;0;4
+FILE_NAME_2=1184;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Finspector%2Finspector.tcl;0;4
 FILE_NAME_3=28460;C;1;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fdlr%2FdlrNative-src%2FdlrNative.c;0;4
 FILE_NAME_4=2336;C;1;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fdlr%2FdlrNative-src%2FdlrNative.h;0;4
 FILE_NAME_5=14511;Tcl;1;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fdlr%2Fdlr%2Fdlr.tcl;0;4
-FILE_NAME_6=5971;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fdlr%2Fdlr-binding%2Fgi%2Fscript%2Fgi.tcl;0;4
-FILE_NAME_7=1222;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Ftest.tcl;0;4
-FILE_NAME_8=250;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fdlr%2Fdlr-binding%2Fgi%2Fscript%2Fglib.tcl;0;4
+FILE_NAME_6=11844;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fdlr%2Fdlr-binding%2Fgi%2Fscript%2Fgi.tcl;0;4
+FILE_NAME_7=2284;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Ftest.tcl;0;4
+FILE_NAME_8=476;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fdlr%2Fdlr-binding%2Fgi%2Fscript%2Fglib.tcl;0;4
 FILE_NAME_9=449;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fdlr%2Fdlr-binding%2Fgi%2Fscript%2Fgtk.tcl;0;4
 FILE_NAME_10=1975;Sh;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fbuild;0;4
 FILE_NAME_11=971;C;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fgobj-introspec%2Finfodump.c;0;4

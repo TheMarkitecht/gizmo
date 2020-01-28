@@ -62,9 +62,9 @@ puts nArgs=$nArgs
 assert {$nArgs == 5}
 
 # test a glib call.
-alias  ::glib::assertion_message  ::dlr::lib::glib::assertion_message::call
+alias  ::g::assertion_message  ::dlr::lib::g::assertion_message::call
 #todo: reinstate
-#::glib::assertion_message  one  two  3  four  five
+#::g::assertion_message  one  two  3  four  five
 #puts call-Done
 
 # puts [join [lsort [info commands ::dlr::lib::testLib::*]] \n]

@@ -33,7 +33,7 @@ proc loadSpace {giSpace  giSpaceVersion} {
     set ::giSpaceVersion  $giSpaceVersion
     set errP 0
     set tlbP [::gi::repository::require  $::gi::repoP  $giSpace  $giSpaceVersion  0  errP]
-    ::glib::throwGError $errP
+    ::g::checkGError $errP
     assert {$tlbP != 0}
     puts "tlbP=$tlbP  space=$giSpace"
 }

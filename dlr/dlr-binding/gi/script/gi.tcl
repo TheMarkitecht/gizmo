@@ -140,6 +140,7 @@ proc ::gi::giSpaceToLibAlias {giSpace} {
     if {[string match *lib $a]} {
         return [string range $a 0 end-3]
     }
+    return $a
 }
 
 # equivalent to ascii::unpack-scriptPtr-asString followed by ::gi::free.
