@@ -28,13 +28,25 @@
 # script interpreter support.
 alias  ::gi::get  set ;# allows "get" as an alternative to the one-argument "set", with much clearer intent.
 
+# compiler support.
+set ::gi::oldCompiler   $::dlr::compiler
+set ::dlr::compiler {
+    set gtkFlags [exec pkg-config --cflags gtk+-3.0]
+    set gtkLibs  [exec pkg-config --libs   gtk+-3.0]
+    #puts [list gcc  {*}$gtkFlags  --std=c11  -O0  -I.  -o $binFn  $cFn  {*}$gtkLibs]
+    exec  gcc  {*}$gtkFlags  --std=c11  -O0  -I.  -o $binFn  $cFn  {*}$gtkLibs
+}
+
 # #################  GNOME and GI simple types  ############################
 ::dlr::typedef  int  gint
 ::dlr::typedef  u32  enum
+::dlr::typedef  u32  GQuark
 
 ::dlr::typedef  enum  GIRepositoryLoadFlags
 # don't use this.  it causes all subsequent find_by_name to fail.
 set ::gi::REPOSITORY_LOAD_FLAG_LAZY $(1 << 0)
+
+# #################  GNOME and GI structure types  ############################
 
 # #################  GI API function bindings  ############################
 
@@ -47,7 +59,7 @@ alias  ::gi::repository::get_default   ::dlr::lib::gi::g_irepository_get_default
 
 ::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_require  {
     {in     byVal   ptr                     repository      asInt}
-    {in     byPtr   ascii                   namespace       asString}
+    {in     byPtr   ascii                   giSpace         asString}
     {in     byPtr   ascii                   version         asString}
     {in     byVal   GIRepositoryLoadFlags   flags           asInt}
     {out    byPtr   ptr                     error           asInt}
@@ -60,20 +72,20 @@ alias  ::gi::repository::require   ::dlr::lib::gi::g_irepository_require::call
 #todo: script is responsible for g_free'ing that pointer later.  or is g_object_unref() better there?
 ::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_find_by_name  {
     {in     byVal   ptr                     repository      asInt}
-    {in     byPtr   ascii                   namespace       asString}
+    {in     byPtr   ascii                   giSpace         asString}
     {in     byPtr   ascii                   name            asString}
 }
 alias  ::gi::repository::find_by_name   ::dlr::lib::gi::g_irepository_find_by_name::call
 
 ::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_get_c_prefix  {
     {in     byVal   ptr                     repository      asInt}
-    {in     byPtr   ascii                   namespace       asString}
+    {in     byPtr   ascii                   giSpace         asString}
 }
 alias  ::gi::repository::get_c_prefix   ::dlr::lib::gi::g_irepository_get_c_prefix::call
 
 ::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_get_shared_library  {
     {in     byVal   ptr                     repository      asInt}
-    {in     byPtr   ascii                   namespace       asString}
+    {in     byPtr   ascii                   giSpace         asString}
 }
 alias  ::gi::repository::get_shared_library   ::dlr::lib::gi::g_irepository_get_shared_library::call
 
@@ -82,7 +94,41 @@ alias  ::gi::repository::get_shared_library   ::dlr::lib::gi::g_irepository_get_
 }
 alias  ::gi::callable_info::get_n_args   ::dlr::lib::gi::g_callable_info_get_n_args::call
 
+::dlr::declareCallToNative  applyScript  gi  {gint asInt}  g_irepository_get_n_infos  {
+    {in     byVal   ptr                     repository      asInt}
+    {in     byPtr   ascii                   giSpace         asString}
+}
+alias  ::gi::repository::get_n_infos   ::dlr::lib::gi::g_irepository_get_n_infos::call
+
+::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_get_info  {
+    {in     byVal   ptr                     repository      asInt}
+    {in     byPtr   ascii                   giSpace         asString}
+    {in     byVal   gint                    index           asInt}
+}
+alias  ::gi::repository::get_info   ::dlr::lib::gi::g_irepository_get_info::call
+
+::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_base_info_get_type  {
+    {in     byVal   ptr                     info      asInt}
+}
+alias  ::gi::base_info::get_type   ::dlr::lib::gi::g_base_info_get_type::call
+
+::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_info_type_to_string  {
+    {in     byVal   enum                    type      asInt}
+}
+alias  ::gi::info_type_to_string   ::dlr::lib::gi::g_info_type_to_string::call
+
+::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_base_info_get_name  {
+    {in     byVal   ptr                     info      asInt}
+}
+alias  ::gi::base_info::get_name   ::dlr::lib::gi::g_base_info_get_name::call
+
 # #################  add-on dlr features supporting GI  ############################
+
+proc ::gi::declareStructType {scriptAction  giSpace  structTypeName  membersDescrip} {
+    set libAlias [string tolower $giSpace]
+    ::dlr::declareStructType $scriptAction  $libAlias  $structTypeName  $membersDescrip
+    #todo: fetch struct members from GI so they don't have to be declared.
+}
 
 # like ::dlr::declareCallToNative, but for GNOME calls instead (those described by GI).
 # parameters and most other metadata are obtained directly from GI and don't
@@ -300,3 +346,8 @@ set ::gi::repoP  [::gi::repository::get_default]
 #todo: make ::gi::loadLib take the giSpace version number so it's not repeated in each declaration.
 source  [file join [file dirname [info script]]  glib.tcl]
 source  [file join [file dirname [info script]]  gtk.tcl]
+
+set ::dlr::compiler  $::gi::oldCompiler
+
+#todo: create a Jim class that holds a GObject pointer and its type info, and automatically verify that before passing pointer to another gnome func.
+# and maybe holds lifetime info also, to help with automatic memory management.
