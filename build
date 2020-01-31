@@ -59,7 +59,7 @@ rm -rf ./dlr/dlr-binding/gi/auto  ;# this forces regeneration of libgirepository
 rm -rf ./dlr/dlr-binding/glib/auto
 rm -rf ./dlr/dlr-binding/gtk/auto
 export JIMLIB=./dlr:./dlrNative-src
-./gizmo  test.tcl
+./gizmo  test.tcl  f1.tcl  f2.tcl
 
 # check for memory leak
 #todo: valgrind

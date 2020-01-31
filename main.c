@@ -47,7 +47,7 @@ static void app_activate (GtkApplication* app,  gpointer user_data) {
     gtk_window_set_default_size (GTK_WINDOW (mainWin), 200, 200);
     gtk_widget_show_all (mainWin);
 }
-
+/*
 static void app_open (GApplication *application,
                gpointer      files,
                gint          n_files,
@@ -71,7 +71,7 @@ static void app_open (GApplication *application,
         g_free(path);
     }
 }
-
+*/
 void marshalMyClosure (GClosure *closure, GValue *return_value,
     guint n_param_values, const GValue *param_values,
     gpointer invocation_hint, gpointer marshal_data)
@@ -93,22 +93,33 @@ void marshalMyClosure (GClosure *closure, GValue *return_value,
         Jim_Obj* o = NULL;
         printf("type=%s\n", G_VALUE_TYPE_NAME(gvP));
         //todo: skip all these runtime checks by configuring each conversion in advance, from GI metadata.
-        GType typ = G_VALUE_TYPE(gvP);
+        GType typ = G_VALUE_TYPE(gvP); // probably accessible by g_value_get_gtype() also.
         if (G_TYPE_IS_CLASSED(typ) || G_VALUE_HOLDS_POINTER(gvP)) {
+            printf("    pointer\n");
             o = Jim_NewIntObj(itp, (jim_wide)g_value_peek_pointer(gvP));
         } else if (G_VALUE_HOLDS_INT(gvP)) {
+            printf("    int\n");
             o = Jim_NewIntObj(itp, (jim_wide)g_value_get_int(gvP));
         } else {
+/* this works but don't want it here.
+            printf("    other\n");
             GValue b = G_VALUE_INIT;
             g_value_init (&b, G_TYPE_STRING);
             g_return_if_fail(g_value_transform(gvP, &b));
             //todo: extract string length from GValue struct to avoid paying for another length scan here.
             o = Jim_NewStringObj(itp, g_value_get_string(&b), -1);
+*/
         }
-        Jim_ListAppendElement(itp, objv, o);
+        if (o) Jim_ListAppendElement(itp, objv, o);
     }
-    //todo: cope with files array.
-/*
+    //todo: cope with array.
+    // it's not a GArray.
+    // G_VALUE_TYPE_NAME says it's a gchararray, which is typedef gchar*, a string.  wrong.
+    // https://developer.gnome.org/gio/stable/GApplication.html#GApplication-open
+    // docs say it's a C array of GFile's.
+
+    //todo: quit testing with 'open' and change to some other signal that is visible in gi; a candidate for automatic binding.
+
     // extract numFiles.
     GValue numFilesV = G_VALUE_INIT;
     g_value_init (&numFilesV, G_TYPE_INT);
@@ -117,13 +128,17 @@ void marshalMyClosure (GClosure *closure, GValue *return_value,
     printf ("numFiles=%d\n", numFiles);
 
     // extract filenames.
+    Jim_Obj* fnList = Jim_NewListObj(itp, NULL, 0);
     GFile** files = g_value_peek_pointer (param_values + 1);
     for (int i = 0; i < numFiles; i++) {
         char* path = g_file_get_path(G_FILE(files[i]));
         printf("file=%s\n", path);
+
+        Jim_ListAppendElement(itp, fnList, Jim_NewStringObj(itp, path, -1));
+
         g_free(path);
     }
-*/
+    Jim_ListAppendElement(itp, objv, fnList);
 
     // using the list's internalRep should run slightly faster than Jim_EvalObjList().
     int result = Jim_EvalObjVector(itp, objv->internalRep.listValue.len, objv->internalRep.listValue.ele);
@@ -170,15 +185,16 @@ int main (int argc, char **argv) {
         G_APPLICATION_HANDLES_OPEN | G_APPLICATION_NON_UNIQUE);
     printf("app=%p\n", app);
     g_signal_connect (app, "activate", G_CALLBACK (app_activate), NULL);
-    g_signal_connect (app, "open", G_CALLBACK (app_open), NULL);
+    //g_signal_connect (app, "open", G_CALLBACK (app_open), NULL);
 
-/*
+
     MyClosure* clos = my_closure_new(NULL);
+    // most signals are described in gi.  this one is not??
     if (g_signal_connect_closure (app, "open", (GClosure*)clos, 0) == 0) {
         fprintf(stderr, "%s", "couldn't connect to 'open' signal\n");
         return MAIN_ERROR_EXIT_STATUS;
     }
-*/
+
 
 
     // prepare Jim interp.
