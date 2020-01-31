@@ -47,22 +47,21 @@ proc bench {label  reps  script} {
 
 # a few simple tests of the GI API, through dlr.
 set errP 0
-set tlbP [::gi::repository::require  $::gi::repoP  GLib  2.0  0  errP]
+set tlbP [::gi::g_irepository_require  $::gi::repoP  GLib  2.0  0  errP]
 puts [format errP=$::dlr::ptrFmt $errP]
 assert {$errP == 0}
 puts [format tlbP=$::dlr::ptrFmt $tlbP]
 assert {$tlbP != 0}
 
-set fnInfoP [::gi::repository::find_by_name  $::gi::repoP  GLib  assertion_message]
+set fnInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  GLib  assertion_message]
 puts [format fnInfoP=$::dlr::ptrFmt $fnInfoP]
 assert {$fnInfoP != 0}
 
-set nArgs [::gi::callable_info::get_n_args $fnInfoP]
+set nArgs [::gi::g_callable_info_get_n_args $fnInfoP]
 puts nArgs=$nArgs
 assert {$nArgs == 5}
 
 # test a glib call.
-alias  ::g::assertion_message  ::dlr::lib::g::assertion_message::call
 #todo: reinstate
 #::g::assertion_message  one  two  3  four  five
 #puts call-Done

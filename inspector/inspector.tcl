@@ -32,7 +32,7 @@ proc loadSpace {giSpace  giSpaceVersion} {
     set ::giSpace  $giSpace
     set ::giSpaceVersion  $giSpaceVersion
     set errP 0
-    set tlbP [::gi::repository::require  $::gi::repoP  $giSpace  $giSpaceVersion  0  errP]
+    set tlbP [::gi::g_irepository_require  $::gi::repoP  $giSpace  $giSpaceVersion  0  errP]
     ::g::checkGError $errP
     assert {$tlbP != 0}
     puts "tlbP=$tlbP  space=$giSpace"
@@ -40,10 +40,10 @@ proc loadSpace {giSpace  giSpaceVersion} {
 
 proc allInfos {} {
     puts "allInfos  space=$::giSpace"
-    set nInfos [::gi::repository::get_n_infos  $::gi::repoP  $::giSpace]
+    set nInfos [::gi::g_irepository_get_n_infos  $::gi::repoP  $::giSpace]
     set ptrs [list]
     loop i 0 $nInfos {
-        lappend ptrs [::gi::repository::get_info  $::gi::repoP  $::giSpace  $i]
+        lappend ptrs [::gi::g_irepository_get_info  $::gi::repoP  $::giSpace  $i]
     }
     return $ptrs
 }
@@ -68,11 +68,11 @@ if {$::argc == 2} {
 set name {}
 set value {}
 foreach infoP [allInfos] {
-    set tn [::gi::info_type_to_string [::gi::base_info::get_type $infoP]]
-    puts [format  %10s:%s  $tn  [::gi::base_info::get_name $infoP]]
+    set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $infoP]]
+    puts [format  %10s:%s  $tn  [::gi::g_base_info_get_name $infoP]]
 
     set iterP [::dlr::lib::gi::struct::GIAttributeIter::packNew  iter]
-    while {[::gi::base_info::iterate_attributes  $infoP  $iterP  name  value]} {
+    while {[::gi::g_base_info_iterate_attributes  $infoP  $iterP  name  value]} {
         puts "    attr: $name = $value"
     }
 }

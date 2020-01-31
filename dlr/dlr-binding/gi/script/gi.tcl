@@ -73,10 +73,9 @@ alias  ::gi::callToNative  ::dlr::native::giCallToNative
 alias  ::gi::free   dlr::native::giFreeHeap
 
 # this does yield the same default repo pointer as the GI lib linked at compile time, in the same process, same attempt.
-::dlr::declareCallToNative  applyScript  gi  {byVal ptr asInt}  g_irepository_get_default  {}
-alias  ::gi::repository::get_default   ::dlr::lib::gi::g_irepository_get_default::call
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_irepository_get_default  {}
 
-::dlr::declareCallToNative  applyScript  gi  {byVal ptr asInt}  g_irepository_require  {
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_irepository_require  {
     {in     byVal   ptr                     repository      asInt               }
     {in     byPtr   ascii                   giSpace         asString            }
     {in     byPtr   ascii                   version         asString            }
@@ -84,70 +83,63 @@ alias  ::gi::repository::get_default   ::dlr::lib::gi::g_irepository_get_default
     {out    byPtr   ptr                     error           asInt       ignore  }
 }
 #todo: error handling
-alias  ::gi::repository::require   ::dlr::lib::gi::g_irepository_require::call
 
 # returns pointer (scriptPtr integer) to a GIFunctionInfo for the given function name.
 # script is responsible for g_free'ing that pointer later.
 #todo: script is responsible for g_free'ing that pointer later.  or is g_object_unref() better there?
-::dlr::declareCallToNative  applyScript  gi  {byVal ptr asInt}  g_irepository_find_by_name  {
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_irepository_find_by_name  {
     {in     byVal   ptr                     repository      asInt}
     {in     byPtr   ascii                   giSpace         asString}
     {in     byPtr   ascii                   name            asString}
 }
-alias  ::gi::repository::find_by_name   ::dlr::lib::gi::g_irepository_find_by_name::call
 
-::dlr::declareCallToNative  applyScript  gi  {byVal ptr asInt}  g_irepository_get_c_prefix  {
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_irepository_get_c_prefix  {
     {in     byVal   ptr                     repository      asInt}
     {in     byPtr   ascii                   giSpace         asString}
 }
-alias  ::gi::repository::get_c_prefix   ::dlr::lib::gi::g_irepository_get_c_prefix::call
 
-::dlr::declareCallToNative  applyScript  gi  {byVal ptr asInt}  g_irepository_get_shared_library  {
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_irepository_get_shared_library  {
     {in     byVal   ptr                     repository      asInt}
     {in     byPtr   ascii                   giSpace         asString}
 }
-alias  ::gi::repository::get_shared_library   ::dlr::lib::gi::g_irepository_get_shared_library::call
 
-::dlr::declareCallToNative  applyScript  gi  {byVal gint asInt}  g_callable_info_get_n_args  {
+::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_callable_info_get_n_args  {
     {in     byVal   ptr                     callable      asInt}
 }
-alias  ::gi::callable_info::get_n_args   ::dlr::lib::gi::g_callable_info_get_n_args::call
 
-::dlr::declareCallToNative  applyScript  gi  {byVal gint asInt}  g_irepository_get_n_infos  {
+::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_irepository_get_n_infos  {
     {in     byVal   ptr                     repository      asInt}
     {in     byPtr   ascii                   giSpace         asString}
 }
-alias  ::gi::repository::get_n_infos   ::dlr::lib::gi::g_irepository_get_n_infos::call
 
-::dlr::declareCallToNative  applyScript  gi  {byVal ptr asInt}  g_irepository_get_info  {
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_irepository_get_info  {
     {in     byVal   ptr                     repository      asInt}
     {in     byPtr   ascii                   giSpace         asString}
     {in     byVal   gint                    index           asInt}
 }
-alias  ::gi::repository::get_info   ::dlr::lib::gi::g_irepository_get_info::call
 
-::dlr::declareCallToNative  applyScript  gi  {byVal enum asInt}  g_base_info_get_type  {
+::dlr::declareCallToNative  cmd  gi  {byVal enum asInt}  g_base_info_get_type  {
     {in     byVal   ptr                     info      asInt}
 }
-alias  ::gi::base_info::get_type   ::dlr::lib::gi::g_base_info_get_type::call
 
-::dlr::declareCallToNative  applyScript  gi  {byPtr ascii asString ignore}  g_info_type_to_string  {
+::dlr::declareCallToNative  cmd  gi  {byPtr ascii asString ignore}  g_info_type_to_string  {
     {in     byVal   enum                    type      asInt}
 }
-alias  ::gi::info_type_to_string   ::dlr::lib::gi::g_info_type_to_string::call
 
-::dlr::declareCallToNative  applyScript  gi  {byPtr ascii asString ignore}  g_base_info_get_name  {
+::dlr::declareCallToNative  cmd  gi  {byPtr ascii asString ignore}  g_base_info_get_name  {
     {in     byVal   ptr                     info      asInt}
 }
-alias  ::gi::base_info::get_name   ::dlr::lib::gi::g_base_info_get_name::call
 
-::dlr::declareCallToNative  applyScript  gi  {byVal gboolean asInt}  g_base_info_iterate_attributes  {
+::dlr::declareCallToNative  cmd  gi  {byVal gboolean asInt}  g_base_info_iterate_attributes  {
     {in     byVal       ptr                   info      asInt}
     {in     byVal       ptr                   iterator  asInt}
     {out    byPtrPtr    ascii                 name      asString    ignore}
-    {out    byPtrPtr    ascii                 value      asString    ignore}
+    {out    byPtrPtr    ascii                 value     asString    ignore}
 }
-alias  ::gi::base_info::iterate_attributes   ::dlr::lib::gi::g_base_info_iterate_attributes::call
+
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_callable_info_get_return_type  {
+    {in     byVal   enum                    type      asInt}
+}
 
 # #################  add-on dlr features supporting GI  ############################
 
@@ -160,6 +152,7 @@ proc ::gi::giSpaceToLibAlias {giSpace} {
 }
 
 # equivalent to ascii::unpack-scriptPtr-asString followed by ::gi::free.
+#todo: eliminate this when we have extensible memActions.
 proc ::gi::ascii::unpack-scriptPtr-asString-free {pointerIntValue} {
     set unpackedData [::dlr::simple::ascii::unpack-scriptPtr-asString $pointerIntValue]
     ::gi::free $pointerIntValue
@@ -180,14 +173,14 @@ proc ::gi::declareStructType {scriptAction  giSpace  structTypeName  membersDesc
 # any "lib" suffix removed from the end.  use giSpaceToLibAlias for that.
 # that's the version that shall always be passed to ::dlr::declareCallToNative.
 # simple types and all metadata reside as usual under ::dlr and ::dlr::lib::.
-# libgirepository functions are aliased into ::gi::$class::$fnNameBare
+# libgirepository functions are aliased into ::gi::$fnName
 # features of the target native library are aliased into ::$libAlias, usually as Jim OO classes.
 proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescrip  fnName  parmsDescrip} {
     set libAlias [giSpaceToLibAlias $giSpace]
     set fQal ::dlr::lib::${libAlias}::${fnName}::
 
     set err 0
-    set tlbP [::dlr::lib::gi::g_irepository_require::call  $::gi::repoP  $giSpace  $version  0  err]
+    set tlbP [::gi::g_irepository_require  $::gi::repoP  $giSpace  $version  0  err]
     if {$err != 0} {
         error "GI namespace '$giSpace' not found."
     }
@@ -196,7 +189,7 @@ proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescri
     }
 
     # get GI callable info.
-    set fnInfoP [::gi::repository::find_by_name  $::gi::repoP  GLib  assertion_message]
+    set fnInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  GLib  assertion_message]
 
     # query all metadata from GI callable.
 #todo: implement declareCallToNative
@@ -210,7 +203,7 @@ proc ::gi::declareSignalHandler {scriptAction  giSpace  version  returnTypeDescr
     set fQal ::dlr::lib::${libAlias}::${fnName}::
 
     set err 0
-    set tlbP [::dlr::lib::gi::g_irepository_require::call  $::gi::repoP  $giSpace  $version  0  err]
+    set tlbP [::gi::g_irepository_require  $::gi::repoP  $giSpace  $version  0  err]
     if {$err != 0} {
         error "GI namespace '$giSpace' not found."
     }
@@ -219,7 +212,7 @@ proc ::gi::declareSignalHandler {scriptAction  giSpace  version  returnTypeDescr
     }
 
     # get GI callable info.
-    set fnInfoP [::gi::repository::find_by_name  $::gi::repoP  GLib  assertion_message]
+    set fnInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  GLib  assertion_message]
 
     # query all metadata from GI callable.
 #todo: implement declareSignalHandler
@@ -232,7 +225,7 @@ proc ::gi::declareSignalHandler {scriptAction  giSpace  version  returnTypeDescr
 
 # #################  finish initializing gi package  ############################
 
-set ::gi::repoP  [::gi::repository::get_default]
+set ::gi::repoP  [::gi::g_irepository_get_default]
 
 #todo: move this feature into a new variant ::gi::loadLib
 #todo: make ::gi::loadLib take the giSpace version number so it's not repeated in each declaration.
