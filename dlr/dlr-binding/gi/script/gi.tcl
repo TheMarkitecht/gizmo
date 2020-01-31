@@ -72,15 +72,15 @@ alias  ::gi::callToNative  ::dlr::native::giCallToNative
 alias  ::gi::free   dlr::native::giFreeHeap
 
 # this does yield the same default repo pointer as the GI lib linked at compile time, in the same process, same attempt.
-::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_get_default  {}
+::dlr::declareCallToNative  applyScript  gi  {byVal ptr asInt}  g_irepository_get_default  {}
 alias  ::gi::repository::get_default   ::dlr::lib::gi::g_irepository_get_default::call
 
-::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_require  {
-    {in     byVal   ptr                     repository      asInt}
-    {in     byPtr   ascii                   giSpace         asString}
-    {in     byPtr   ascii                   version         asString}
-    {in     byVal   GIRepositoryLoadFlags   flags           asInt}
-    {out    byPtr   ptr                     error           asInt}
+::dlr::declareCallToNative  applyScript  gi  {byVal ptr asInt}  g_irepository_require  {
+    {in     byVal   ptr                     repository      asInt               }
+    {in     byPtr   ascii                   giSpace         asString            }
+    {in     byPtr   ascii                   version         asString            }
+    {in     byVal   GIRepositoryLoadFlags   flags           asInt               }
+    {out    byPtr   ptr                     error           asInt       ignore  }
 }
 #todo: error handling
 alias  ::gi::repository::require   ::dlr::lib::gi::g_irepository_require::call
@@ -88,83 +88,65 @@ alias  ::gi::repository::require   ::dlr::lib::gi::g_irepository_require::call
 # returns pointer (scriptPtr integer) to a GIFunctionInfo for the given function name.
 # script is responsible for g_free'ing that pointer later.
 #todo: script is responsible for g_free'ing that pointer later.  or is g_object_unref() better there?
-::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_find_by_name  {
+::dlr::declareCallToNative  applyScript  gi  {byVal ptr asInt}  g_irepository_find_by_name  {
     {in     byVal   ptr                     repository      asInt}
     {in     byPtr   ascii                   giSpace         asString}
     {in     byPtr   ascii                   name            asString}
 }
 alias  ::gi::repository::find_by_name   ::dlr::lib::gi::g_irepository_find_by_name::call
 
-::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_get_c_prefix  {
+::dlr::declareCallToNative  applyScript  gi  {byVal ptr asInt}  g_irepository_get_c_prefix  {
     {in     byVal   ptr                     repository      asInt}
     {in     byPtr   ascii                   giSpace         asString}
 }
 alias  ::gi::repository::get_c_prefix   ::dlr::lib::gi::g_irepository_get_c_prefix::call
 
-::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_get_shared_library  {
+::dlr::declareCallToNative  applyScript  gi  {byVal ptr asInt}  g_irepository_get_shared_library  {
     {in     byVal   ptr                     repository      asInt}
     {in     byPtr   ascii                   giSpace         asString}
 }
 alias  ::gi::repository::get_shared_library   ::dlr::lib::gi::g_irepository_get_shared_library::call
 
-::dlr::declareCallToNative  applyScript  gi  {gint asInt}  g_callable_info_get_n_args  {
+::dlr::declareCallToNative  applyScript  gi  {byVal gint asInt}  g_callable_info_get_n_args  {
     {in     byVal   ptr                     callable      asInt}
 }
 alias  ::gi::callable_info::get_n_args   ::dlr::lib::gi::g_callable_info_get_n_args::call
 
-::dlr::declareCallToNative  applyScript  gi  {gint asInt}  g_irepository_get_n_infos  {
+::dlr::declareCallToNative  applyScript  gi  {byVal gint asInt}  g_irepository_get_n_infos  {
     {in     byVal   ptr                     repository      asInt}
     {in     byPtr   ascii                   giSpace         asString}
 }
 alias  ::gi::repository::get_n_infos   ::dlr::lib::gi::g_irepository_get_n_infos::call
 
-::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_irepository_get_info  {
+::dlr::declareCallToNative  applyScript  gi  {byVal ptr asInt}  g_irepository_get_info  {
     {in     byVal   ptr                     repository      asInt}
     {in     byPtr   ascii                   giSpace         asString}
     {in     byVal   gint                    index           asInt}
 }
 alias  ::gi::repository::get_info   ::dlr::lib::gi::g_irepository_get_info::call
 
-::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_base_info_get_type  {
+::dlr::declareCallToNative  applyScript  gi  {byVal enum asInt}  g_base_info_get_type  {
     {in     byVal   ptr                     info      asInt}
 }
 alias  ::gi::base_info::get_type   ::dlr::lib::gi::g_base_info_get_type::call
 
-::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_info_type_to_string  {
+::dlr::declareCallToNative  applyScript  gi  {byPtr ascii asString ignore}  g_info_type_to_string  {
     {in     byVal   enum                    type      asInt}
 }
-proc  ::dlr::lib::gi::g_info_type_to_string::callManaged {type} {
-    return [::dlr::simple::ascii::unpack-scriptPtr-asString  \
-        [::dlr::lib::gi::g_info_type_to_string::call $type]]
-}
-alias  ::gi::info_type_to_string   ::dlr::lib::gi::g_info_type_to_string::callManaged
+alias  ::gi::info_type_to_string   ::dlr::lib::gi::g_info_type_to_string::call
 
-::dlr::declareCallToNative  applyScript  gi  {ptr asInt}  g_base_info_get_name  {
+::dlr::declareCallToNative  applyScript  gi  {byPtr ascii asString ignore}  g_base_info_get_name  {
     {in     byVal   ptr                     info      asInt}
 }
-proc  ::dlr::lib::gi::g_base_info_get_name::callManaged {info} {
-    return [::dlr::simple::ascii::unpack-scriptPtr-asString  \
-        [::dlr::lib::gi::g_base_info_get_name::call $info]]
-}
-alias  ::gi::base_info::get_name   ::dlr::lib::gi::g_base_info_get_name::callManaged
+alias  ::gi::base_info::get_name   ::dlr::lib::gi::g_base_info_get_name::call
 
-::dlr::declareCallToNative  applyScript  gi  {gboolean asInt}  g_base_info_iterate_attributes  {
-    {in     byVal   ptr                   info      asInt}
-    {in     byVal   ptr                   iterator  asInt}
-    {out    byPtr   ptr                   name      asInt}
-    {out    byPtr   ptr                   value     asInt}
+::dlr::declareCallToNative  applyScript  gi  {byVal gboolean asInt}  g_base_info_iterate_attributes  {
+    {in     byVal       ptr                   info      asInt}
+    {in     byVal       ptr                   iterator  asInt}
+    {out    byPtrPtr    ascii                 name      asString    ignore}
+    {out    byPtrPtr    ascii                 value      asString    ignore}
 }
-proc  ::dlr::lib::gi::g_base_info_iterate_attributes::callManaged {info iteratorVar nameVar valueVar} {
-    set nameP 0
-    set valueP 0
-    upvar 1 $iteratorVar iter
-    set result [::dlr::lib::gi::g_base_info_iterate_attributes::call  $info [::dlr::addrOf iter] nameP valueP]
-    upvar 1 $nameVar name
-    upvar 1 $valueVar value
-    set name  [::dlr::simple::ascii::unpack-scriptPtr-asString  $nameP]
-    set value [::dlr::simple::ascii::unpack-scriptPtr-asString  $valueP]
-}
-alias  ::gi::base_info::iterate_attributes   ::dlr::lib::gi::g_base_info_iterate_attributes::callManaged
+alias  ::gi::base_info::iterate_attributes   ::dlr::lib::gi::g_base_info_iterate_attributes::call
 
 # #################  add-on dlr features supporting GI  ############################
 
@@ -216,92 +198,10 @@ proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescri
     set fnInfoP [::gi::repository::find_by_name  $::gi::repoP  GLib  assertion_message]
 
     # query all metadata from GI callable.
+#todo: implement declareCallToNative
 
     # pass callable info to prepMetaBlob
 
-    # memorize metadata for parms.
-    set order [list]
-    set orderNative [list]
-    set typesMeta [list]
-    set parmFlagsList [list]
-    foreach parmDesc $parmsDescrip {
-#todo: support memAction
-        lassign $parmDesc  dir  passMethod  type  name  scriptForm
-        set pQal ${fQal}parm::${name}::
-
-        lappend order $name
-        lappend orderNative ${pQal}native
-
-        if {$dir ni $::dlr::directions} {
-            error "Invalid direction of flow was given."
-        }
-        set ${pQal}dir  $dir
-        lappend parmFlagsList $::dlr::dlrFlags(dir_$dir)
-
-        if {$passMethod ni $::dlr::passMethods} {
-            error "Invalid passMethod was given."
-        }
-        set ${pQal}passMethod  $passMethod
-
-        set fullType [::dlr::qualifyTypeName $type $libAlias]
-        set ${pQal}type  $fullType
-        set ${pQal}passType $( $passMethod eq {byPtr} ? {::dlr::simple::ptr} : $fullType )
-        lappend typesMeta [::dlr::selectTypeMeta [get ${pQal}passType]]
-
-        ::dlr::validateScriptForm $fullType $scriptForm
-        set ${pQal}scriptForm  $scriptForm
-
-        # this version uses only byVal converters, and wraps them in script for byPtr.
-        # in future, the converters might be allowed to implement byPtr also, for more speed etc.
-        set ${pQal}packer   [::dlr::converterName   pack $fullType byVal $scriptForm]
-        set ${pQal}unpacker [::dlr::converterName unpack $fullType byVal $scriptForm]
-
-        if {$passMethod eq {byPtr}} {
-            set ${pQal}targetNativeName  ${pQal}targetNative
-        }
-    }
-    set ${fQal}parmOrder        $order
-    set ${fQal}parmOrderNative  $orderNative
-    # parmOrderNative is also derived and memorized here, along with the rest,
-    # in case the app needs to change it before using generateCallProc.
-
-    # memorize metadata for return value.
-    # it does not support other variable names for the native value, since that's generally hidden from scripts anyway.
-    # it's always "out byVal" but does support different types and scriptForms.
-    # it's not practical to support "out byPtr" here because there are many variations of
-    # how the pointer's target was allocated, who is responsible for freeing that ram, etc.
-    # instead that must be left to the script app to deal with.
-    set rQal ${fQal}return::
-    lassign $returnTypeDescrip  type scriptForm
-    set fullType [::dlr::qualifyTypeName $type $libAlias]
-    set ${rQal}type  $fullType
-    ::dlr::validateScriptForm $fullType $scriptForm
-    set ${rQal}scriptForm  $scriptForm
-    set ${rQal}unpacker  [::dlr::converterName unpack $fullType byVal $scriptForm]
-    # FFI requires padding the return buffer up to sizeof(ffi_arg).
-    # on a big endian machine, that means unpacking from a higher address.
-    set ${rQal}padding 0
-    if {[get ${fullType}::size] < $::dlr::simple::ffiArg::size && $::dlr::endian eq {be}} {
-        set ${rQal}padding  $($::dlr::simple::ffiArg::size - [get ${fullType}::size])
-    }
-    set rMeta [::dlr::selectTypeMeta $fullType]
-
-    if {[::dlr::refreshMeta] || ! [file readable [::dlr::callWrapperPath $libAlias $fnName]]} {
-        ::dlr::generateCallProc  $libAlias  $fnName  ::gi::callToNative
-    }
-
-    if {$scriptAction ni {applyScript noScript}} {
-        error "Invalid script action: $scriptAction"
-    }
-    if {$scriptAction eq {applyScript}} {
-        source [::dlr::callWrapperPath  $libAlias  $fnName]
-    }
-
-    # prepare a metaBlob to hold dlrNative and FFI data structures.
-    # do this last, to prevent an ill-advised callToNative using half-baked metadata
-    # after an error preparing the metadata.  callToNative can't happen without this metaBlob.
-    ::dlr::prepMetaBlob  ${fQal}meta  $fnInfoP  \
-        ${rQal}native  $rMeta  $orderNative  $typesMeta  $parmFlagsList
 }
 
 proc ::gi::declareSignalHandler {scriptAction  giSpace  version  returnTypeDescrip  fnName  parmsDescrip} {
@@ -321,80 +221,9 @@ proc ::gi::declareSignalHandler {scriptAction  giSpace  version  returnTypeDescr
     set fnInfoP [::gi::repository::find_by_name  $::gi::repoP  GLib  assertion_message]
 
     # query all metadata from GI callable.
+#todo: implement declareSignalHandler
 
     # pass callable info to prepMetaBlob
-
-    # memorize metadata for parms.
-    set order [list]
-    set orderNative [list]
-    set typesMeta [list]
-    set parmFlagsList [list]
-    foreach parmDesc $parmsDescrip {
-        lassign $parmDesc  dir  passMethod  type  name  scriptForm
-        set pQal ${fQal}parm::${name}::
-
-        lappend order $name
-        lappend orderNative ${pQal}native
-
-        if {$dir ni $::dlr::directions} {
-            error "Invalid direction of flow was given."
-        }
-        set ${pQal}dir  $dir
-        lappend parmFlagsList $::dlr::dlrFlags(dir_$dir)
-
-        if {$passMethod ni $::dlr::passMethods} {
-            error "Invalid passMethod was given."
-        }
-        set ${pQal}passMethod  $passMethod
-
-        set fullType [::dlr::qualifyTypeName $type $libAlias]
-        set ${pQal}type  $fullType
-        set ${pQal}passType $( $passMethod eq {byPtr} ? {::dlr::simple::ptr} : $fullType )
-        lappend typesMeta [::dlr::selectTypeMeta [get ${pQal}passType]]
-
-        ::dlr::validateScriptForm $fullType $scriptForm
-        set ${pQal}scriptForm  $scriptForm
-
-        # this version uses only byVal converters, and wraps them in script for byPtr.
-        # in future, the converters might be allowed to implement byPtr also, for more speed etc.
-        set ${pQal}packer   [::dlr::converterName   pack $fullType byVal $scriptForm]
-        set ${pQal}unpacker [::dlr::converterName unpack $fullType byVal $scriptForm]
-
-        if {$passMethod eq {byPtr}} {
-            set ${pQal}targetNativeName  ${pQal}targetNative
-        }
-    }
-    set ${fQal}parmOrder        $order
-    set ${fQal}parmOrderNative  $orderNative
-    # parmOrderNative is also derived and memorized here, along with the rest,
-    # in case the app needs to change it before using generateCallProc.
-
-    # memorize metadata for return value.
-    # it does not support other variable names for the native value, since that's generally hidden from scripts anyway.
-    # it's always "out byVal" but does support different types and scriptForms.
-    # it's not practical to support "out byPtr" here because there are many variations of
-    # how the pointer's target was allocated, who is responsible for freeing that ram, etc.
-    # instead that must be left to the script app to deal with.
-    set rQal ${fQal}return::
-    lassign $returnTypeDescrip  type scriptForm
-    set fullType [::dlr::qualifyTypeName $type $libAlias]
-    set ${rQal}type  $fullType
-    ::dlr::validateScriptForm $fullType $scriptForm
-    set ${rQal}scriptForm  $scriptForm
-    set ${rQal}unpacker  [::dlr::converterName unpack $fullType byVal $scriptForm]
-    # FFI requires padding the return buffer up to sizeof(ffi_arg).
-    # on a big endian machine, that means unpacking from a higher address.
-    set ${rQal}padding 0
-    if {[get ${fullType}::size] < $::dlr::simple::ffiArg::size && $::dlr::endian eq {be}} {
-        set ${rQal}padding  $($::dlr::simple::ffiArg::size - [get ${fullType}::size])
-    }
-    set rMeta [::dlr::selectTypeMeta $fullType]
-
-    # prepare a metaBlob to hold dlrNative and FFI data structures.
-    # do this last, to prevent an ill-advised callToNative using half-baked metadata
-    # after an error preparing the metadata.  callToNative can't happen without this metaBlob.
-    ::dlr::prepMetaBlob  ${fQal}meta  $fnInfoP  \
-        ${rQal}native  $rMeta  $orderNative  $typesMeta  $parmFlagsList
 }
 
 
@@ -406,8 +235,9 @@ set ::gi::repoP  [::gi::repository::get_default]
 
 #todo: move this feature into a new variant ::gi::loadLib
 #todo: make ::gi::loadLib take the giSpace version number so it's not repeated in each declaration.
-source  [file join [file dirname [info script]]  glib.tcl]
-source  [file join [file dirname [info script]]  gtk.tcl]
+#todo: reinstate.
+#source  [file join [file dirname [info script]]  glib.tcl]
+#source  [file join [file dirname [info script]]  gtk.tcl]
 
 set ::dlr::compiler  $::gi::oldCompiler
 
