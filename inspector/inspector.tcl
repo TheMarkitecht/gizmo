@@ -65,11 +65,15 @@ if {$::argc == 2} {
 }
 
 # dump all available infos
+puts "[llength [allInfos]] total infos"
 set name {}
 set value {}
 foreach infoP [allInfos] {
     set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $infoP]]
     puts [format  %10s:%s  $tn  [::gi::g_base_info_get_name $infoP]]
+    if {$tn in {function}} {
+        puts "    nArgs=[::gi::g_callable_info_get_n_args $infoP]"
+    }
 
     set iterP [::dlr::lib::gi::struct::GIAttributeIter::packNew  iter]
     while {[::gi::g_base_info_iterate_attributes  $infoP  $iterP  name  value]} {
