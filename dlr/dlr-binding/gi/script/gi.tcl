@@ -61,6 +61,7 @@ proc ::dlr::lib::gi::struct::GIAttributeIter::packNew {packVarName} {
     upvar 1 $packVarName packed
     ::dlr::createBufferVar  packed  $::dlr::lib::gi::struct::GIAttributeIter::size
     ::dlr::simple::ptr::pack-byVal-asInt  packed  0  $::dlr::lib::gi::struct::GIAttributeIter::member::data::offset
+    return [::dlr::addrOf  packed]
 }
 
 # #################  GI API function bindings  ############################
@@ -235,9 +236,8 @@ set ::gi::repoP  [::gi::repository::get_default]
 
 #todo: move this feature into a new variant ::gi::loadLib
 #todo: make ::gi::loadLib take the giSpace version number so it's not repeated in each declaration.
-#todo: reinstate.
-#source  [file join [file dirname [info script]]  glib.tcl]
-#source  [file join [file dirname [info script]]  gtk.tcl]
+source  [file join [file dirname [info script]]  glib.tcl]
+source  [file join [file dirname [info script]]  gtk.tcl]
 
 set ::dlr::compiler  $::gi::oldCompiler
 
