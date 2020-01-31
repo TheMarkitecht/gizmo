@@ -163,6 +163,26 @@ alias  ::gi::free   dlr::native::giFreeHeap
     {in     byVal   ptr                     type      asInt}
 }
 
+::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_interface_info_get_n_signals  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_interface_info_get_signal  {
+    {in     byVal   ptr                     info      asInt}
+    {in     byVal   gint                    n         asInt}
+}
+# do unref
+
+::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_object_info_get_n_signals  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_object_info_get_signal  {
+    {in     byVal   ptr                     info      asInt}
+    {in     byVal   gint                    n         asInt}
+}
+# do unref
+
 # #################  add-on dlr features supporting GI  ############################
 
 proc ::gi::giSpaceToLibAlias {giSpace} {

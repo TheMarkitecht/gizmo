@@ -91,8 +91,24 @@ foreach infoP [allInfos] {
             puts [format  {%18s: %s}  argType  $tag]
             ::gi::g_base_info_unref $argP
         }
-
-
+    } elseif {$tn in {interface}} {
+        # signals
+        set nSigs [::gi::g_interface_info_get_n_signals $infoP]
+        loop i 0 $nSigs {
+            set sigP [::gi::g_interface_info_get_signal $infoP $i]
+            set name [::gi::g_base_info_get_name $sigP]
+            puts [format  {%14s: %s}  signal  $name]
+            ::gi::g_base_info_unref $sigP
+        }
+    } elseif {$tn in {object}} {
+        # signals
+        set nSigs [::gi::g_object_info_get_n_signals $infoP]
+        loop i 0 $nSigs {
+            set sigP [::gi::g_object_info_get_signal $infoP $i]
+            set name [::gi::g_base_info_get_name $sigP]
+            puts [format  {%14s: %s}  signal  $name]
+            ::gi::g_base_info_unref $sigP
+        }
     }
 
 }
