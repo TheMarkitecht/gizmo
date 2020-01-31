@@ -48,21 +48,18 @@ proc allInfos {} {
     return $ptrs
 }
 
+# command line.
+lassign $::argv  ::metaAction  ::giSpace  ::giSpaceVersion
+
 # required packages.
 package require dlr
 if { ! $::dlr::giEnabled} {
     error "dlr library was compiled with no GI support."
 }
-::dlr::loadLib  keepMeta  gi  libgirepository-1.0.so
+::dlr::loadLib  $::metaAction  gi  libgirepository-1.0.so
+loadSpace  $::giSpace  $::giSpaceVersion
 
 # globals
-set ::giSpace  {}
-set ::giSpaceVersion  {}
-
-# parse command line
-if {$::argc == 2} {
-    loadSpace  {*}$::argv
-}
 
 # dump all available infos
 puts "[llength [allInfos]] total infos"
@@ -70,13 +67,32 @@ set name {}
 set value {}
 foreach infoP [allInfos] {
     set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $infoP]]
-    puts [format  %10s:%s  $tn  [::gi::g_base_info_get_name $infoP]]
-    if {$tn in {function}} {
-        puts "    nArgs=[::gi::g_callable_info_get_n_args $infoP]"
-    }
+    puts [format  {%10s: %s}  $tn  [::gi::g_base_info_get_name $infoP]]
 
+    # arbitrary string attributes.  evidently uncommon.
     set iterP [::dlr::lib::gi::struct::GIAttributeIter::packNew  iter]
     while {[::gi::g_base_info_iterate_attributes  $infoP  $iterP  name  value]} {
-        puts "    attr: $name = $value"
+        puts [format  {%14s: %s}  "attr: $name" $value]
     }
+
+    if {$tn in {function}} {
+        # return
+        set rTypeP [::gi::g_callable_info_get_return_type $infoP]
+        set tag [::gi::g_type_info_get_tag $rTypeP]
+        puts [format  {%14s: %s}  returnType  $tag]
+        ::gi::g_base_info_unref $rTypeP
+
+        # parms
+        set nArgs [::gi::g_callable_info_get_n_args $infoP]
+        loop i 0 $nArgs {
+            set argP [::gi::g_callable_info_get_arg $infoP $i]
+            set aTypeP [::gi::g_arg_info_get_type $argP]
+            set tag [::gi::g_type_info_get_tag $aTypeP]
+            puts [format  {%18s: %s}  argType  $tag]
+            ::gi::g_base_info_unref $argP
+        }
+
+
+    }
+
 }

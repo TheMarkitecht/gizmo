@@ -46,6 +46,8 @@ set ::dlr::compiler {
 ::dlr::typedef  u32  GQuark
 ::dlr::typedef  gint gboolean
 
+::dlr::typedef  enum  GITypeTag
+
 ::dlr::typedef  enum  GIRepositoryLoadFlags
 # don't use this.  it causes all subsequent find_by_name to fail.
 set ::gi::REPOSITORY_LOAD_FLAG_LAZY $(1 << 0)
@@ -103,10 +105,6 @@ alias  ::gi::free   dlr::native::giFreeHeap
     {in     byPtr   ascii                   giSpace         asString}
 }
 
-::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_callable_info_get_n_args  {
-    {in     byVal   ptr                     callable      asInt}
-}
-
 ::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_irepository_get_n_infos  {
     {in     byVal   ptr                     repository      asInt}
     {in     byPtr   ascii                   giSpace         asString}
@@ -130,6 +128,10 @@ alias  ::gi::free   dlr::native::giFreeHeap
     {in     byVal   ptr                     info      asInt}
 }
 
+::dlr::declareCallToNative  cmd  gi  {void}  g_base_info_unref  {
+    {in     byVal   ptr                     info      asInt}
+}
+
 ::dlr::declareCallToNative  cmd  gi  {byVal gboolean asInt}  g_base_info_iterate_attributes  {
     {in     byVal       ptr                   info      asInt}
     {in     byVal       ptr                   iterator  asInt}
@@ -138,7 +140,27 @@ alias  ::gi::free   dlr::native::giFreeHeap
 }
 
 ::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_callable_info_get_return_type  {
-    {in     byVal   enum                    type      asInt}
+    {in     byVal   ptr                     type      asInt}
+}
+# do unref
+
+::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_callable_info_get_n_args  {
+    {in     byVal   ptr                     callable      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_callable_info_get_arg  {
+    {in     byVal   ptr                     info      asInt}
+    {in     byVal   gint                    n         asInt}
+}
+# do unref
+
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_arg_info_get_type  {
+    {in     byVal   ptr                     info      asInt}
+}
+# do unref
+
+::dlr::declareCallToNative  cmd  gi  {byVal GITypeTag asInt}  g_type_info_get_tag  {
+    {in     byVal   ptr                     type      asInt}
 }
 
 # #################  add-on dlr features supporting GI  ############################
