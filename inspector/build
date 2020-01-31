@@ -44,6 +44,7 @@ gcc $linkSO -o dlrNative.so  dlrNative.o  /usr/lib/x86_64-linux-gnu/libffi.a  $g
 # run inspector.
 cd $project
 export JIMLIB=../dlr:../dlrNative-src
-./jimsh  inspector.tcl  refreshMeta  Gio  2.0
-./jimsh  inspector.tcl  refreshMeta  GLib  2.0
-./jimsh  inspector.tcl  refreshMeta  Gtk  3.0
+namePattern=application
+./jimsh  inspector.tcl  refreshMeta  Gio  2.0  $namePattern
+./jimsh  inspector.tcl  refreshMeta  GLib 2.0  $namePattern
+./jimsh  inspector.tcl  refreshMeta  Gtk  3.0  $namePattern

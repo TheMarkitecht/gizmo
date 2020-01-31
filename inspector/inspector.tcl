@@ -48,8 +48,73 @@ proc allInfos {} {
     return $ptrs
 }
 
+alias dump-function dump-callable
+
+alias dump-signal dump-callable
+
+proc dump-callable {infoP} {
+    set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $infoP]]
+    puts [format  {%10s: %s}  $tn  [::gi::g_base_info_get_name $infoP]]
+
+    # return
+    set rTypeP [::gi::g_callable_info_get_return_type $infoP]
+    set tag [::gi::g_type_info_get_tag $rTypeP]
+    puts [format  {%14s: %s}  returnType  $tag]
+    ::gi::g_base_info_unref $rTypeP
+
+    # parms
+    set nArgs [::gi::g_callable_info_get_n_args $infoP]
+    loop i 0 $nArgs {
+        set argP [::gi::g_callable_info_get_arg $infoP $i]
+        set aTypeP [::gi::g_arg_info_get_type $argP]
+        set tag [::gi::g_type_info_get_tag $aTypeP]
+        puts [format  {%18s: %s}  argType  $tag]
+        ::gi::g_base_info_unref $argP
+    }
+}
+
+proc dump-interface {infoP} {
+    # signals
+    set nSigs [::gi::g_interface_info_get_n_signals $infoP]
+    loop i 0 $nSigs {
+        set sigP [::gi::g_interface_info_get_signal $infoP $i]
+        dump-signal $sigP
+        ::gi::g_base_info_unref $sigP
+    }
+}
+
+# this really should be dump-class, but GNOME calls it object.
+proc dump-object {infoP} {
+    # signals
+    set nSigs [::gi::g_object_info_get_n_signals $infoP]
+    loop i 0 $nSigs {
+        set sigP [::gi::g_object_info_get_signal $infoP $i]
+        dump-signal $sigP
+        ::gi::g_base_info_unref $sigP
+    }
+}
+
+proc dump-info {infoP} {
+    set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $infoP]]
+    puts [format  {%10s: %s}  $tn  [::gi::g_base_info_get_name $infoP]]
+
+    # arbitrary string attributes.  evidently uncommon.
+    set name {}
+    set value {}
+    set iterP [::dlr::lib::gi::struct::GIAttributeIter::packNew  iter]
+    while {[::gi::g_base_info_iterate_attributes  $infoP  $iterP  name  value]} {
+        puts [format  {%14s: %s}  "attr: $name" $value]
+    }
+
+    # info-type-specific stuff.
+    if {[exists -command dump-$tn]} {
+        dump-$tn  $infoP
+    }
+}
+
 # command line.
-lassign $::argv  ::metaAction  ::giSpace  ::giSpaceVersion
+lassign $::argv  ::metaAction  ::giSpace  ::giSpaceVersion  namePattern
+if {$namePattern eq {}} {set namePattern * }
 
 # required packages.
 package require dlr
@@ -62,53 +127,11 @@ loadSpace  $::giSpace  $::giSpaceVersion
 # globals
 
 # dump all available infos
-puts "[llength [allInfos]] total infos"
-set name {}
-set value {}
-foreach infoP [allInfos] {
-    set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $infoP]]
-    puts [format  {%10s: %s}  $tn  [::gi::g_base_info_get_name $infoP]]
-
-    # arbitrary string attributes.  evidently uncommon.
-    set iterP [::dlr::lib::gi::struct::GIAttributeIter::packNew  iter]
-    while {[::gi::g_base_info_iterate_attributes  $infoP  $iterP  name  value]} {
-        puts [format  {%14s: %s}  "attr: $name" $value]
+set all [allInfos]
+puts "[llength $all] total infos"
+foreach infoP $all {
+    set name [::gi::g_base_info_get_name $infoP]
+    if {[string match -nocase $namePattern $name]} {
+        dump-info $infoP
     }
-
-    if {$tn in {function}} {
-        # return
-        set rTypeP [::gi::g_callable_info_get_return_type $infoP]
-        set tag [::gi::g_type_info_get_tag $rTypeP]
-        puts [format  {%14s: %s}  returnType  $tag]
-        ::gi::g_base_info_unref $rTypeP
-
-        # parms
-        set nArgs [::gi::g_callable_info_get_n_args $infoP]
-        loop i 0 $nArgs {
-            set argP [::gi::g_callable_info_get_arg $infoP $i]
-            set aTypeP [::gi::g_arg_info_get_type $argP]
-            set tag [::gi::g_type_info_get_tag $aTypeP]
-            puts [format  {%18s: %s}  argType  $tag]
-            ::gi::g_base_info_unref $argP
-        }
-    } elseif {$tn in {interface}} {
-        # signals
-        set nSigs [::gi::g_interface_info_get_n_signals $infoP]
-        loop i 0 $nSigs {
-            set sigP [::gi::g_interface_info_get_signal $infoP $i]
-            set name [::gi::g_base_info_get_name $sigP]
-            puts [format  {%14s: %s}  signal  $name]
-            ::gi::g_base_info_unref $sigP
-        }
-    } elseif {$tn in {object}} {
-        # signals
-        set nSigs [::gi::g_object_info_get_n_signals $infoP]
-        loop i 0 $nSigs {
-            set sigP [::gi::g_object_info_get_signal $infoP $i]
-            set name [::gi::g_base_info_get_name $sigP]
-            puts [format  {%14s: %s}  signal  $name]
-            ::gi::g_base_info_unref $sigP
-        }
-    }
-
 }
