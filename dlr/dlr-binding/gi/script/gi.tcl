@@ -33,20 +33,35 @@ set ::gi::oldCompiler   $::dlr::compiler
 set ::dlr::compiler {
     set gtkFlags [exec pkg-config --cflags gtk+-3.0]
     set gtkLibs  [exec pkg-config --libs   gtk+-3.0]
+    set giFlags  [list -I/usr/include/gobject-introspection-1.0 ]
+    set giLibs   [list -lgirepository-1.0 ]
     #puts [list gcc  {*}$gtkFlags  --std=c11  -O0  -I.  -o $binFn  $cFn  {*}$gtkLibs]
-    exec  gcc  {*}$gtkFlags  --std=c11  -O0  -I.  -o $binFn  $cFn  {*}$gtkLibs
+    exec  gcc  {*}$giFlags  {*}$gtkFlags  --std=c11  -O0  -I.  \
+        -o $binFn  $cFn  {*}$gtkLibs  {*}$giLibs
 }
 
 # #################  GNOME and GI simple types  ############################
 ::dlr::typedef  int  gint
 ::dlr::typedef  u32  enum
 ::dlr::typedef  u32  GQuark
+::dlr::typedef  gint gboolean
 
 ::dlr::typedef  enum  GIRepositoryLoadFlags
 # don't use this.  it causes all subsequent find_by_name to fail.
 set ::gi::REPOSITORY_LOAD_FLAG_LAZY $(1 << 0)
 
 # #################  GNOME and GI structure types  ############################
+::dlr::declareStructType  noScript  gi  GIAttributeIter  {
+    {ptr        data      asInt}
+    {ptr        data2     asInt}
+    {ptr        data3     asInt}
+    {ptr        data4     asInt}
+}
+proc ::dlr::lib::gi::struct::GIAttributeIter::packNew {packVarName} {
+    upvar 1 $packVarName packed
+    ::dlr::createBufferVar  packed  $::dlr::lib::gi::struct::GIAttributeIter::size
+    ::dlr::simple::ptr::pack-byVal-asInt  packed  0  $::dlr::lib::gi::struct::GIAttributeIter::member::data::offset
+}
 
 # #################  GI API function bindings  ############################
 
@@ -133,6 +148,24 @@ proc  ::dlr::lib::gi::g_base_info_get_name::callManaged {info} {
 }
 alias  ::gi::base_info::get_name   ::dlr::lib::gi::g_base_info_get_name::callManaged
 
+::dlr::declareCallToNative  applyScript  gi  {gboolean asInt}  g_base_info_iterate_attributes  {
+    {in     byVal   ptr                   info      asInt}
+    {in     byVal   ptr                   iterator  asInt}
+    {out    byPtr   ptr                   name      asInt}
+    {out    byPtr   ptr                   value     asInt}
+}
+proc  ::dlr::lib::gi::g_base_info_iterate_attributes::callManaged {info iteratorVar nameVar valueVar} {
+    set nameP 0
+    set valueP 0
+    upvar 1 $iteratorVar iter
+    set result [::dlr::lib::gi::g_base_info_iterate_attributes::call  $info [::dlr::addrOf iter] nameP valueP]
+    upvar 1 $nameVar name
+    upvar 1 $valueVar value
+    set name  [::dlr::simple::ascii::unpack-scriptPtr-asString  $nameP]
+    set value [::dlr::simple::ascii::unpack-scriptPtr-asString  $valueP]
+}
+alias  ::gi::base_info::iterate_attributes   ::dlr::lib::gi::g_base_info_iterate_attributes::callManaged
+
 # #################  add-on dlr features supporting GI  ############################
 
 proc ::gi::giSpaceToLibAlias {giSpace} {
@@ -192,6 +225,7 @@ proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescri
     set typesMeta [list]
     set parmFlagsList [list]
     foreach parmDesc $parmsDescrip {
+#todo: support memAction
         lassign $parmDesc  dir  passMethod  type  name  scriptForm
         set pQal ${fQal}parm::${name}::
 

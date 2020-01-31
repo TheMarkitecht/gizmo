@@ -68,4 +68,9 @@ if {$::argc == 2} {
 foreach infoP [allInfos] {
     set tn [::gi::info_type_to_string [::gi::base_info::get_type $infoP]]
     puts [format  %10s:%s  $tn  [::gi::base_info::get_name $infoP]]
+
+    ::dlr::lib::gi::struct::GIAttributeIter::packNew  iter
+    while {[::gi::base_info::iterate_attributes  $infoP  $iter  name  value]} {
+        puts "    attr: $name = $value"
+    }
 }
