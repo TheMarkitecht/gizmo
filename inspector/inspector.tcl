@@ -38,8 +38,8 @@ proc loadSpace {giSpace  giSpaceVersion} {
     puts "tlbP=$tlbP  space=$giSpace"
 }
 
-proc allInfos {} {
-    puts "allInfos  space=$::giSpace"
+proc rootInfos {} {
+    puts "rootInfos  space=$::giSpace"
     set nInfos [::gi::g_irepository_get_n_infos  $::gi::repoP  $::giSpace]
     set ptrs [list]
     loop i 0 $nInfos {
@@ -52,65 +52,89 @@ alias dump-function dump-callable
 
 alias dump-signal dump-callable
 
-proc dump-callable {infoP} {
-    set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $infoP]]
-    puts [format  {%10s: %s}  $tn  [::gi::g_base_info_get_name $infoP]]
-
-    # return
-    set rTypeP [::gi::g_callable_info_get_return_type $infoP]
-    set tag [::gi::g_type_info_get_tag $rTypeP]
-    puts [format  {%14s: %s}  returnType  $tag]
-    ::gi::g_base_info_unref $rTypeP
+proc dump-callable {label  indent  infoP} {
+    # return value.
+    dumpTypeInfoUnref  return  $indent  [::gi::g_callable_info_get_return_type $infoP]
 
     # parms
     set nArgs [::gi::g_callable_info_get_n_args $infoP]
     loop i 0 $nArgs {
-        set argP [::gi::g_callable_info_get_arg $infoP $i]
-        set aTypeP [::gi::g_arg_info_get_type $argP]
-        set tag [::gi::g_type_info_get_tag $aTypeP]
-        puts [format  {%18s: %s}  argType  $tag]
-        ::gi::g_base_info_unref $argP
+        dumpInfoUnref  {}  $indent  [::gi::g_callable_info_get_arg $infoP $i]
     }
 }
 
-proc dump-interface {infoP} {
+proc dump-arg {label  indent  infoP} {
+    dumpTypeInfoUnref  {}  $indent  [::gi::g_arg_info_get_type $infoP]
+}
+
+proc dump-interface {label  indent  infoP} {
     # signals
     set nSigs [::gi::g_interface_info_get_n_signals $infoP]
     loop i 0 $nSigs {
-        set sigP [::gi::g_interface_info_get_signal $infoP $i]
-        dump-signal $sigP
-        ::gi::g_base_info_unref $sigP
+        dumpInfoUnref  {}  $indent  [::gi::g_interface_info_get_signal $infoP $i]
     }
 }
 
 # this really should be dump-class, but GNOME calls it object.
-proc dump-object {infoP} {
+proc dump-object {label  indent  infoP} {
     # signals
     set nSigs [::gi::g_object_info_get_n_signals $infoP]
     loop i 0 $nSigs {
-        set sigP [::gi::g_object_info_get_signal $infoP $i]
-        dump-signal $sigP
-        ::gi::g_base_info_unref $sigP
+        dumpInfoUnref  {}  $indent  [::gi::g_object_info_get_signal $infoP $i]
     }
 }
 
-proc dump-info {infoP} {
+# main dumper for all BaseInfo's.  all subtypes of those come through here,
+# except GITypeInfo.  see dumpTypeInfo.
+proc dumpInfo {label  indent  infoP} {
+    if {$label ne {}} {append label { : }}
     set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $infoP]]
-    puts [format  {%10s: %s}  $tn  [::gi::g_base_info_get_name $infoP]]
+    puts -nonewline "$indent${label}<${tn}> : "
+    # this next function crashes on certain structs.
+    flush stdout
+    puts [::gi::g_base_info_get_name $infoP]
 
     # arbitrary string attributes.  evidently uncommon.
     set name {}
     set value {}
+    set header "$indent    attributes\n"
     set iterP [::dlr::lib::gi::struct::GIAttributeIter::packNew  iter]
     while {[::gi::g_base_info_iterate_attributes  $infoP  $iterP  name  value]} {
-        puts [format  {%14s: %s}  "attr: $name" $value]
+        puts -nonewline $header
+        set header {}
+        puts "$indent        $name : $value"
     }
 
     # info-type-specific stuff.
     if {[exists -command dump-$tn]} {
-        dump-$tn  $infoP
+        dump-$tn  {}  "$indent    "  $infoP
     }
 }
+
+proc dumpInfoUnref {label  indent  ptr} {
+    dumpInfo  $label  $indent  $ptr
+    ::gi::g_base_info_unref $ptr
+}
+
+proc dumpTypeInfoUnref {label  indent  typeInfoP} {
+    dumpTypeInfo  $label  $indent  $typeInfoP
+    ::gi::g_base_info_unref $typeInfoP
+}
+
+proc dumpTypeInfo {label  indent  typeInfoP} {
+    # typeInfoP points to a GITypeInfo.  that struct is a subtype of GIBaseInfo.
+    # but it has no additional members of its own.
+    # but g_base_info_get_name fails on it.
+
+    # this dumper shows a header like the root dumper dumpInfo,
+    # because typeInfo's don't appear in rootInfos.  their identifying header
+    # hasn't already been printed.
+    if {$label ne {}} {append label { : }}
+    set tag [::gi::g_type_info_get_tag $typeInfoP]
+    puts "$indent${label}typeInfo tag $tag : [::gi::g_info_type_to_string $tag]"
+    #todo: g_info_type_to_string gives the wrong names.
+}
+
 
 # command line.
 lassign $::argv  ::metaAction  ::giSpace  ::giSpaceVersion  namePattern
@@ -127,11 +151,11 @@ loadSpace  $::giSpace  $::giSpaceVersion
 # globals
 
 # dump all available infos
-set all [allInfos]
-puts "[llength $all] total infos"
-foreach infoP $all {
+set roots [rootInfos]
+puts "[llength $roots] total root infos"
+foreach infoP $roots {
     set name [::gi::g_base_info_get_name $infoP]
     if {[string match -nocase $namePattern $name]} {
-        dump-info $infoP
+        dumpInfo  {}  {}  $infoP
     }
 }

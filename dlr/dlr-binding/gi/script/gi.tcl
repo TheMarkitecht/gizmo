@@ -183,6 +183,12 @@ alias  ::gi::free   dlr::native::giFreeHeap
 }
 # do unref
 
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_type_info_get_param_type  {
+    {in     byVal   ptr                     info      asInt}
+    {in     byVal   gint                    n         asInt}
+}
+# do unref
+
 # #################  add-on dlr features supporting GI  ############################
 
 proc ::gi::giSpaceToLibAlias {giSpace} {

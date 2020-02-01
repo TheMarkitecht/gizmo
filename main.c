@@ -119,6 +119,7 @@ void marshalMyClosure (GClosure *closure, GValue *return_value,
     // docs say it's a C array of GFile's.
 
     //todo: quit testing with 'open' and change to some other signal that is visible in gi; a candidate for automatic binding.
+    // in fact it is visible, in the Gio giSpace instead of Glib.
 
     // extract numFiles.
     GValue numFilesV = G_VALUE_INIT;
