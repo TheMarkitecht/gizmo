@@ -208,8 +208,6 @@ int main (int argc, char **argv) {
     Jim_SetVariableStrWithStr(itp, "tcl_interactive", argc == 1 ? "1" : "0");
     Jim_RegisterCoreCommands(itp);
     Jim_InitStaticExtensions(itp);
-    if (Jim_PackageProvide(itp, "gizmo", "1.0", JIM_ERRMSG))
-        return JIM_ERR;
     if (Jim_dlrNativeInit(itp) != JIM_OK) {
         fprintf(stderr, "%s", "couldn't init dlr\n");
         return MAIN_ERROR_EXIT_STATUS;

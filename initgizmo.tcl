@@ -49,6 +49,7 @@ proc _gizmo_init {} {
         error "dlr library was compiled with no GI support."
     }
     ::dlr::loadLib  keepMeta  gi  libgirepository-1.0.so
+    package provide gizmo
 
     set disabled {
         # create main window

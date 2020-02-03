@@ -22,9 +22,6 @@
 #  along with gizmo.  If not, see <https://www.gnu.org/licenses/>.
 
 
-# script interpreter support.
-alias  ::get  set ;# allows "get" as an alternative to the one-argument "set", with much clearer intent.
-
 proc assert {exp} {
     set truth [uplevel 1 [list expr $exp]]
     if { ! $truth} {
@@ -161,22 +158,26 @@ proc dumpTypeInfo {label  indent  typeInfoP} {
     }
 }
 
-
 # command line.
 lassign $::argv  ::metaAction  ::giSpace  ::giSpaceVersion  namePattern
 if {$namePattern eq {}} {set namePattern * }
 
 # required packages.
 package require dlr
+# this code borrows from initgizmo.tcl to initialize gi, because inspector is made to run
+# in jimsh, not gizmo.
 if { ! $::dlr::giEnabled} {
     error "dlr library was compiled with no GI support."
 }
 ::dlr::loadLib  $::metaAction  gi  libgirepository-1.0.so
-loadSpace  $::giSpace  $::giSpaceVersion
+
+# script interpreter support.
+alias  ::get  set ;# allows "get" as an alternative to the one-argument "set", with much clearer intent.
 
 # globals
 
 # dump all available infos
+loadSpace  $::giSpace  $::giSpaceVersion
 set roots [rootInfos]
 puts "[llength $roots] total root infos"
 foreach infoP $roots {

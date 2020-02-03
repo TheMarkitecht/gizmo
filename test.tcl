@@ -21,11 +21,7 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with gizmo.  If not, see <https://www.gnu.org/licenses/>.
 
-set ::appDir [file join [pwd] [file dirname [info script]]]
 
-puts paths=$::auto_path
-
-package require dlr
 
 proc assert {exp} {
     set truth [uplevel 1 [list expr $exp]]
@@ -44,6 +40,20 @@ proc bench {label  reps  script} {
     puts [format "    time=%0.3fs  each=%0.1fus" $(double($elapseMs) / 1000.0) $eachUs]
     flush stdout
 }
+
+# required packages.
+puts paths=$::auto_path
+package require gizmo
+
+# script interpreter support.
+alias  ::get  set ;# allows "get" as an alternative to the one-argument "set", with much clearer intent.
+
+# command line.
+lassign $::argv  ::metaAction  ::giSpace  ::giSpaceVersion  namePattern
+if {$namePattern eq {}} {set namePattern * }
+
+# globals
+set ::appDir [file join [pwd] [file dirname [info script]]]
 
 # a few simple tests of the GI API, through dlr.
 set errP 0
