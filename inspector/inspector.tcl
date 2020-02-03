@@ -32,11 +32,8 @@ proc assert {exp} {
 proc loadSpace {giSpace  giSpaceVersion} {
     set ::giSpace  $giSpace
     set ::giSpaceVersion  $giSpaceVersion
-    set errP 0
-    set tlbP [::gi::g_irepository_require  $::gi::repoP  $giSpace  $giSpaceVersion  0  errP]
-    ::g::checkGError $errP
-    assert {$tlbP != 0}
-    puts "tlbP=$tlbP  space=$giSpace"
+    set tlbP [::gi::loadSpace  $::metaAction  $giSpace  $giSpaceVersion]
+    puts "space=$giSpace  v=$giSpaceVersion  tlbP=[format $::dlr::ptrFmt $tlbP]"
 }
 
 proc rootInfos {} {

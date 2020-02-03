@@ -28,19 +28,26 @@
 # script interpreter support.
 alias  ::gi::get  set ;# allows "get" as an alternative to the one-argument "set", with much clearer intent.
 
-# compiler support.
-set ::gi::oldCompiler   $::dlr::compiler
-set ::dlr::compiler {
-    set gtkFlags [exec pkg-config --cflags gtk+-3.0]
-    set gtkLibs  [exec pkg-config --libs   gtk+-3.0]
-    set giFlags  [list -I/usr/include/gobject-introspection-1.0 ]
-    set giLibs   [list -lgirepository-1.0 ]
-    #puts [list gcc  {*}$gtkFlags  --std=c11  -O0  -I.  -o $binFn  $cFn  {*}$gtkLibs]
-    exec  gcc  {*}$giFlags  {*}$gtkFlags  --std=c11  -O0  -I.  \
-        -o $binFn  $cFn  {*}$gtkLibs  {*}$giLibs
+# #################  compiler support  ############################
+proc ::gi::pushCompiler {} {
+    set ::gi::oldCompiler   $::dlr::compiler
+    set ::dlr::compiler {
+        set gtkFlags [exec pkg-config --cflags gtk+-3.0]
+        set gtkLibs  [exec pkg-config --libs   gtk+-3.0]
+        set giFlags  [list -I/usr/include/gobject-introspection-1.0 ]
+        set giLibs   [list -lgirepository-1.0 ]
+        #puts [list gcc  {*}$gtkFlags  --std=c11  -O0  -I.  -o $binFn  $cFn  {*}$gtkLibs]
+        exec  gcc  {*}$giFlags  {*}$gtkFlags  --std=c11  -O0  -I.  \
+            -o $binFn  $cFn  {*}$gtkLibs  {*}$giLibs
+    }
+}
+
+proc ::gi::popCompiler {} {
+    set ::dlr::compiler $::gi::oldCompiler
 }
 
 # #################  GNOME and GI simple types  ############################
+# these are using ::dlr::typedef rather than ::gi::typedef because it's not initialized yet.
 ::dlr::typedef  int  gint
 ::dlr::typedef  u32  enum
 ::dlr::typedef  u32  GQuark
@@ -53,6 +60,9 @@ set ::dlr::compiler {
 set ::gi::REPOSITORY_LOAD_FLAG_LAZY $(1 << 0)
 
 # #################  GNOME and GI structure types  ############################
+# these are using ::dlr::declareStructType rather than ::gi::declareStructType because it's not initialized yet.
+
+::gi::pushCompiler
 
 ::dlr::declareStructType  noScript  gi  GIAttributeIter  {
     {ptr        data      asInt}
@@ -67,7 +77,12 @@ proc ::dlr::lib::gi::struct::GIAttributeIter::packNew {packVarName} {
     return [::dlr::addrOf  packed]
 }
 
+# any more type declarations go in this spot.
+
+::gi::popCompiler
+
 # #################  GI API function bindings  ############################
+# these are using ::dlr::declareCallToNative rather than ::gi::declareCallToNative because it's not initialized yet.
 
 # g_function_info_invoke is called in C instead of script, for speed.
 alias  ::gi::callToNative  ::dlr::native::giCallToNative
@@ -205,6 +220,36 @@ alias  ::gi::free   dlr::native::giFreeHeap
 
 # #################  add-on dlr features supporting GI  ############################
 
+# like ::dlr::loadLib, but for GNOME libraries.
+#todo: more docs
+proc ::gi::loadSpace {metaAction  giSpace  giSpaceVersion} {
+    set libAlias [giSpaceToLibAlias $giSpace]
+    set errP 0
+    set tlbP [::gi::g_irepository_require  $::gi::repoP  $giSpace  $giSpaceVersion  0  errP]
+    # can't use ::g::checkGError here; it's not loaded yet.
+    if {$errP != 0} {
+        error "GI namespace not found: $giSpace $giSpaceVersion"
+    }
+    if {$tlbP == 0} {
+        error "GI typelib not found: $giSpace $giSpaceVersion"
+    }
+    set ::gi::${libAlias}::tlbHandle $tlbP
+    set ::gi::${libAlias}::version  $giSpaceVersion
+    source  [file join $::dlr::bindingDir  $libAlias  script  $libAlias.tcl]
+    return $tlbP
+}
+
+proc ::gi::isSpaceLoaded {giSpace} {
+    set libAlias [giSpaceToLibAlias $giSpace]
+    return [exists ::gi::${libAlias}::tlbHandle]
+}
+
+proc ::gi::requireSpace {giSpace} {
+    if { ! [::gi::isSpaceLoaded $giSpace]} {
+        error "GI namespace '$giSpace' is required but is not already loaded."
+    }
+}
+
 proc ::gi::giSpaceToLibAlias {giSpace} {
     set a [string tolower $giSpace]
     if {[string match *lib $a]} {
@@ -221,10 +266,18 @@ proc ::gi::ascii::unpack-scriptPtr-asString-free {pointerIntValue} {
     return $unpackedData
 }
 
+# can be used to declare new simple type based on an existing one.
+proc ::gi::typedef {existingType  name} {
+    ::dlr::typedef $existingType  $name
+}
+
 proc ::gi::declareStructType {scriptAction  giSpace  structTypeName  membersDescrip} {
+    ::gi::requireSpace $giSpace
     set libAlias [giSpaceToLibAlias $giSpace]
+    ::gi::pushCompiler
     ::dlr::declareStructType $scriptAction  $libAlias  $structTypeName  $membersDescrip
     #todo: fetch struct members from GI so they don't have to be declared.
+    ::gi::popCompiler
 }
 
 # like ::dlr::declareCallToNative, but for GNOME calls instead (those described by GI).
@@ -237,18 +290,10 @@ proc ::gi::declareStructType {scriptAction  giSpace  structTypeName  membersDesc
 # simple types and all metadata reside as usual under ::dlr and ::dlr::lib::.
 # libgirepository functions are aliased into ::gi::$fnName
 # features of the target native library are aliased into ::$libAlias, usually as Jim OO classes.
-proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescrip  fnName  parmsDescrip} {
+proc ::gi::declareCallToNative {scriptAction  giSpace  returnTypeDescrip  fnName  parmsDescrip} {
+    ::gi::requireSpace $giSpace
     set libAlias [giSpaceToLibAlias $giSpace]
     set fQal ::dlr::lib::${libAlias}::${fnName}::
-
-    set err 0
-    set tlbP [::gi::g_irepository_require  $::gi::repoP  $giSpace  $version  0  err]
-    if {$err != 0} {
-        error "GI namespace '$giSpace' not found."
-    }
-    if {$tlbP == 0} {
-        error "GI typelib '$giSpace' not found."
-    }
 
     # get GI callable info.
     set fnInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  GLib  assertion_message]
@@ -260,18 +305,10 @@ proc ::gi::declareCallToNative {scriptAction  giSpace  version  returnTypeDescri
 
 }
 
-proc ::gi::declareSignalHandler {scriptAction  giSpace  version  returnTypeDescrip  fnName  parmsDescrip} {
+proc ::gi::declareSignalHandler {scriptAction  giSpace  returnTypeDescrip  fnName  parmsDescrip} {
+    ::gi::requireSpace $giSpace
     set libAlias [giSpaceToLibAlias $giSpace]
     set fQal ::dlr::lib::${libAlias}::${fnName}::
-
-    set err 0
-    set tlbP [::gi::g_irepository_require  $::gi::repoP  $giSpace  $version  0  err]
-    if {$err != 0} {
-        error "GI namespace '$giSpace' not found."
-    }
-    if {$tlbP == 0} {
-        error "GI typelib '$giSpace' not found."
-    }
 
     # get GI callable info.
     set fnInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  GLib  assertion_message]
@@ -322,12 +359,5 @@ foreach {name tag dlrType} $::gi::typeTags {
 
 set ::gi::repoP  [::gi::g_irepository_get_default]
 
-#todo: move this feature into a new variant ::gi::loadLib
-#todo: make ::gi::loadLib take the giSpace version number so it's not repeated in each declaration.
-source  [file join $::dlr::bindingDir  g  script  g.tcl]
-source  [file join $::dlr::bindingDir  gtk  script  gtk.tcl]
-
-set ::dlr::compiler  $::gi::oldCompiler
-
-#todo: create a Jim class that holds a GObject pointer and its type info, and automatically verify that before passing pointer to another gnome func.
+#todo: use typed pointers throughout: a Jim class that holds a GObject pointer and its type info, and automatically verify that before passing pointer to another gnome func.
 # and maybe holds lifetime info also, to help with automatic memory management.

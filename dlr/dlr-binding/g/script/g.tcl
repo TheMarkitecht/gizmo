@@ -3,7 +3,7 @@
 
 alias  ::g::free   dlr::native::giFreeHeap
 
-typedef  ptr  GType
+::gi::typedef  ptr  GType
 
 ::gi::declareStructType  convert  GLib  GError  {
     {GQuark     domain      asInt}
@@ -18,7 +18,7 @@ proc ::g::checkGError {errP} {
     }
 }
 
-::gi::declareCallToNative  cmd  GLib  2.0  {void}  assertion_message  {
+::gi::declareCallToNative  cmd  GLib  {void}  assertion_message  {
     {in     byPtr   ascii   a       asString}
     {in     byPtr   ascii   b       asString}
     {in     byVal   int     line    asInt}
