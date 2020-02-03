@@ -324,8 +324,8 @@ set ::gi::repoP  [::gi::g_irepository_get_default]
 
 #todo: move this feature into a new variant ::gi::loadLib
 #todo: make ::gi::loadLib take the giSpace version number so it's not repeated in each declaration.
-source  [file join [file dirname [info script]]  glib.tcl]
-source  [file join [file dirname [info script]]  gtk.tcl]
+source  [file join $::dlr::bindingDir  g  script  g.tcl]
+source  [file join $::dlr::bindingDir  gtk  script  gtk.tcl]
 
 set ::dlr::compiler  $::gi::oldCompiler
 
