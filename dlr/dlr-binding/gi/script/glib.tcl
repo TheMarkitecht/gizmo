@@ -3,6 +3,8 @@
 
 alias  ::g::free   dlr::native::giFreeHeap
 
+typedef  ptr  GType
+
 ::gi::declareStructType  convert  GLib  GError  {
     {GQuark     domain      asInt}
     {gint       code        asInt}

@@ -53,6 +53,7 @@ set ::dlr::compiler {
 set ::gi::REPOSITORY_LOAD_FLAG_LAZY $(1 << 0)
 
 # #################  GNOME and GI structure types  ############################
+
 ::dlr::declareStructType  noScript  gi  GIAttributeIter  {
     {ptr        data      asInt}
     {ptr        data2     asInt}
@@ -189,6 +190,19 @@ alias  ::gi::free   dlr::native::giFreeHeap
 }
 # do unref
 
+::dlr::declareCallToNative  cmd  gi  {byVal gboolean asInt}  g_type_info_is_pointer  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_type_info_get_array_length  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_type_info_get_interface  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+
 # #################  add-on dlr features supporting GI  ############################
 
 proc ::gi::giSpaceToLibAlias {giSpace} {
@@ -272,6 +286,39 @@ proc ::gi::declareSignalHandler {scriptAction  giSpace  version  returnTypeDescr
 #todo: when declaring gtk classes, automatically fit them into Jim OO paradigm, all under ::Gtk
 
 # #################  finish initializing gi package  ############################
+
+# based on GI_TYPE_TAG_*
+#todo: the string types mapped to ascii here actually need e.g. ::dlr::simple::utf8
+set ::gi::typeTags {
+    VOID       0    ::dlr::simple::void
+    BOOLEAN    1    ::dlr::simple::int
+    INT8       2    ::dlr::simple::i8
+    UINT8      3    ::dlr::simple::u8
+    INT16      4    ::dlr::simple::i16
+    UINT16     5    ::dlr::simple::u16
+    INT32      6    ::dlr::simple::i32
+    UINT32     7    ::dlr::simple::u32
+    INT64      8    ::dlr::simple::i64
+    UINT64     9    ::dlr::simple::u64
+    FLOAT     10    ::dlr::simple::float
+    DOUBLE    11    ::dlr::simple::double
+    GTYPE     12    {}
+    UTF8      13    ::dlr::simple::ascii
+    FILENAME  14    ::dlr::simple::ascii
+    ARRAY     15    {}
+    INTERFACE 16    {}
+    GLIST     17    {}
+    GSLIST    18    {}
+    GHASH     19    {}
+    ERROR     20    {}
+    UNICHAR   21    {}
+}
+foreach {name tag dlrType} $::gi::typeTags {
+    set name [string tolower $name]
+    set ::gi::simple::${name}::tag      $tag
+    set ::gi::simple::${name}::dlrType  $dlrType
+    set ::gi::typeTagToName($tag)  $name
+}
 
 set ::gi::repoP  [::gi::g_irepository_get_default]
 

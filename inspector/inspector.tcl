@@ -21,6 +21,10 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with gizmo.  If not, see <https://www.gnu.org/licenses/>.
 
+
+# script interpreter support.
+alias  ::get  set ;# allows "get" as an alternative to the one-argument "set", with much clearer intent.
+
 proc assert {exp} {
     set truth [uplevel 1 [list expr $exp]]
     if { ! $truth} {
@@ -89,10 +93,7 @@ proc dump-object {label  indent  infoP} {
 proc dumpInfo {label  indent  infoP} {
     if {$label ne {}} {append label { : }}
     set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $infoP]]
-    puts -nonewline "$indent${label}<${tn}> : "
-    # this next function crashes on certain structs.
-    flush stdout
-    puts [::gi::g_base_info_get_name $infoP]
+    puts "$indent${label}<${tn}> : [::gi::g_base_info_get_name $infoP]"
 
     # arbitrary string attributes.  evidently uncommon.
     set name {}
@@ -131,8 +132,33 @@ proc dumpTypeInfo {label  indent  typeInfoP} {
     # hasn't already been printed.
     if {$label ne {}} {append label { : }}
     set tag [::gi::g_type_info_get_tag $typeInfoP]
-    puts "$indent${label}typeInfo tag $tag : [::gi::g_info_type_to_string $tag]"
+    #puts "$indent${label}typeInfo tag $tag : [::gi::g_info_type_to_string $tag]"
     #todo: g_info_type_to_string gives the wrong names.
+    set name $::gi::typeTagToName($tag)
+    puts "$indent${label}typeInfo tag $tag : $name : [get ::gi::simple::${name}::dlrType]"
+
+    #todo: param_type offers no upper limit to its index?  and, turns out, it's a bottomless recursion too.
+    #loop i 0 1 {
+        #dumpTypeInfoUnref  paramType  "$indent    "  \
+            #[::gi::g_type_info_get_param_type $typeInfoP $i]
+    #}
+
+    if {[::gi::g_type_info_is_pointer $typeInfoP]} {
+        puts "$indent    is pointer."
+    }
+
+    # this is actually the length of each tuple within the array.
+    set len [::gi::g_type_info_get_array_length $typeInfoP]
+    if {$len >= 0} {
+        puts "$indent    tuple length $len"
+    }
+
+    if {$tag == $::gi::simple::interface::tag} {
+        set ifcP  [::gi::g_type_info_get_interface $typeInfoP]
+        set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $ifcP]]
+        puts "$indent<${tn}> : [::gi::g_base_info_get_name $ifcP]"
+        ::gi::g_base_info_unref $ifcP
+    }
 }
 
 
