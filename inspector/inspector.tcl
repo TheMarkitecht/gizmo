@@ -62,6 +62,9 @@ proc dump-callable {label  indent  infoP} {
 }
 
 proc dump-arg {label  indent  infoP} {
+    set dir [::gi::g_arg_info_get_direction $infoP]
+    puts "$indent$::gi::GIDirection::toName($dir)"
+
     dumpTypeInfoUnref  {}  $indent  [::gi::g_arg_info_get_type $infoP]
 }
 
@@ -128,8 +131,8 @@ proc dumpTypeInfo {label  indent  typeInfoP} {
     set tag [::gi::g_type_info_get_tag $typeInfoP]
     #puts "$indent${label}typeInfo tag $tag : [::gi::g_info_type_to_string $tag]"
     #todo: g_info_type_to_string gives the wrong names.
-    set name $::gi::typeTagToName($tag)
-    puts "$indent${label}typeInfo tag $tag : $name : [get ::gi::simple::${name}::dlrType]"
+    set dTyp  $( [dict exists $::gi::GITypeTag::toDlrType $tag]  ?  $::gi::GITypeTag::toDlrType($tag)  :  {} )
+    puts "$indent${label}typeInfo tag $tag : $::gi::GITypeTag::toName($tag) : $dTyp"
 
     #todo: param_type offers no upper limit to its index?  and, turns out, it's a bottomless recursion too.
     #loop i 0 1 {
@@ -147,7 +150,7 @@ proc dumpTypeInfo {label  indent  typeInfoP} {
         puts "$indent    tuple length $len"
     }
 
-    if {$tag == $::gi::simple::interface::tag} {
+    if {$tag == $::gi::GITypeTag::toValue(INTERFACE)} {
         set ifcP  [::gi::g_type_info_get_interface $typeInfoP]
         set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $ifcP]]
         puts "$indent<${tn}> : [::gi::g_base_info_get_name $ifcP]"

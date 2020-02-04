@@ -53,11 +53,62 @@ proc ::gi::popCompiler {} {
 ::dlr::typedef  u32  GQuark
 ::dlr::typedef  gint gboolean
 
-::dlr::typedef  enum  GITypeTag
+# based on GI_TYPE_TAG_*
+::dlr::declareEnum  gi  gint  GITypeTag  {
+    VOID       0
+    BOOLEAN    1
+    INT8       2
+    UINT8      3
+    INT16      4
+    UINT16     5
+    INT32      6
+    UINT32     7
+    INT64      8
+    UINT64     9
+    FLOAT     10
+    DOUBLE    11
+    GTYPE     12
+    UTF8      13
+    FILENAME  14
+    ARRAY     15
+    INTERFACE 16
+    GLIST     17
+    GSLIST    18
+    GHASH     19
+    ERROR     20
+    UNICHAR   21
+}
+#todo: the string types mapped to ascii here actually need e.g. ::dlr::simple::utf8
+foreach {name typ} {
+    VOID        ::dlr::simple::void
+    BOOLEAN     ::dlr::simple::int
+    INT8        ::dlr::simple::i8
+    UINT8       ::dlr::simple::u8
+    INT16       ::dlr::simple::i16
+    UINT16      ::dlr::simple::u16
+    INT32       ::dlr::simple::i32
+    UINT32      ::dlr::simple::u32
+    INT64       ::dlr::simple::i64
+    UINT64      ::dlr::simple::u64
+    FLOAT       ::dlr::simple::float
+    DOUBLE      ::dlr::simple::double
+    UTF8        ::dlr::simple::ascii
+    FILENAME    ::dlr::simple::ascii
+} {
+    dict set  ::gi::GITypeTag::toDlrType  $::gi::GITypeTag::toValue($name)  $typ
+}
 
-::dlr::typedef  enum  GIRepositoryLoadFlags
 # don't use this.  it causes all subsequent find_by_name to fail.
-set ::gi::REPOSITORY_LOAD_FLAG_LAZY $(1 << 0)
+#todo: change braces to quote marks?
+::dlr::declareEnum  gi  gint  GIRepositoryLoadFlags  {
+    LAZY    $(1 << 0)
+}
+
+::dlr::declareEnum  gi  gint  GIDirection  {
+    IN       {}
+    OUT      {}
+    INOUT    {}
+}
 
 # #################  GNOME and GI structure types  ############################
 # these are using ::dlr::declareStructType rather than ::gi::declareStructType because it's not initialized yet.
@@ -77,7 +128,8 @@ proc ::dlr::lib::gi::struct::GIAttributeIter::packNew {packVarName} {
     return [::dlr::addrOf  packed]
 }
 
-# any more type declarations go in this spot.
+::dlr::declareEnum  gi  gint  GIInfoType  {
+}
 
 ::gi::popCompiler
 
@@ -132,12 +184,12 @@ alias  ::gi::free   dlr::native::giFreeHeap
     {in     byVal   gint                    index           asInt}
 }
 
-::dlr::declareCallToNative  cmd  gi  {byVal enum asInt}  g_base_info_get_type  {
+::dlr::declareCallToNative  cmd  gi  {byVal GIInfoType asInt}  g_base_info_get_type  {
     {in     byVal   ptr                     info      asInt}
 }
 
 ::dlr::declareCallToNative  cmd  gi  {byPtr ascii asString ignore}  g_info_type_to_string  {
-    {in     byVal   enum                    type      asInt}
+    {in     byVal   GIInfoType              type      asInt}
 }
 
 ::dlr::declareCallToNative  cmd  gi  {byPtr ascii asString ignore}  g_base_info_get_name  {
@@ -217,6 +269,10 @@ alias  ::gi::free   dlr::native::giFreeHeap
     {in     byVal   ptr                     info      asInt}
 }
 
+::dlr::declareCallToNative  cmd  gi  {byVal GIDirection asInt}  g_arg_info_get_direction  {
+    {in     byVal   ptr                     info      asInt}
+}
+
 
 # #################  add-on dlr features supporting GI  ############################
 
@@ -271,6 +327,11 @@ proc ::gi::typedef {existingType  name} {
     ::dlr::typedef $existingType  $name
 }
 
+proc ::gi::declareEnum {giSpace  baseTypeSimpleBare  enumTypeBareName  valueMap} {
+    set libAlias [giSpaceToLibAlias $giSpace]
+    ::dlr::declareEnum $libAlias  $baseTypeSimpleBare  $enumTypeBareName  $valueMap
+}
+
 proc ::gi::declareStructType {scriptAction  giSpace  structTypeName  membersDescrip} {
     ::gi::requireSpace $giSpace
     set libAlias [giSpaceToLibAlias $giSpace]
@@ -323,39 +384,6 @@ proc ::gi::declareSignalHandler {scriptAction  giSpace  returnTypeDescrip  fnNam
 #todo: when declaring gtk classes, automatically fit them into Jim OO paradigm, all under ::Gtk
 
 # #################  finish initializing gi package  ############################
-
-# based on GI_TYPE_TAG_*
-#todo: the string types mapped to ascii here actually need e.g. ::dlr::simple::utf8
-set ::gi::typeTags {
-    VOID       0    ::dlr::simple::void
-    BOOLEAN    1    ::dlr::simple::int
-    INT8       2    ::dlr::simple::i8
-    UINT8      3    ::dlr::simple::u8
-    INT16      4    ::dlr::simple::i16
-    UINT16     5    ::dlr::simple::u16
-    INT32      6    ::dlr::simple::i32
-    UINT32     7    ::dlr::simple::u32
-    INT64      8    ::dlr::simple::i64
-    UINT64     9    ::dlr::simple::u64
-    FLOAT     10    ::dlr::simple::float
-    DOUBLE    11    ::dlr::simple::double
-    GTYPE     12    {}
-    UTF8      13    ::dlr::simple::ascii
-    FILENAME  14    ::dlr::simple::ascii
-    ARRAY     15    {}
-    INTERFACE 16    {}
-    GLIST     17    {}
-    GSLIST    18    {}
-    GHASH     19    {}
-    ERROR     20    {}
-    UNICHAR   21    {}
-}
-foreach {name tag dlrType} $::gi::typeTags {
-    set name [string tolower $name]
-    set ::gi::simple::${name}::tag      $tag
-    set ::gi::simple::${name}::dlrType  $dlrType
-    set ::gi::typeTagToName($tag)  $name
-}
 
 set ::gi::repoP  [::gi::g_irepository_get_default]
 
