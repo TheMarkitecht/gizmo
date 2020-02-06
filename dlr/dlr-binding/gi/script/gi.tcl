@@ -115,7 +115,7 @@ foreach {dir dlrDir} {
     OUT      out
     INOUT    inOut
 } {
-    dict set  ::gi::GIDirection::toDlrDirection  $::gi::GIDirection::toValue($dir)  $dlrDir}
+    dict set  ::gi::GIDirection::toDlrDirection  $::gi::GIDirection::toValue($dir)  $dlrDir
 }
 
 # #################  GNOME and GI structure types  ############################
@@ -249,11 +249,31 @@ alias  ::gi::free   dlr::native::giFreeHeap
 }
 # do unref
 
+::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_interface_info_get_n_methods  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_interface_info_get_method {
+    {in     byVal   ptr                     info      asInt}
+    {in     byVal   gint                    n         asInt}
+}
+# do unref
+
 ::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_object_info_get_n_signals  {
     {in     byVal   ptr                     info      asInt}
 }
 
 ::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_object_info_get_signal  {
+    {in     byVal   ptr                     info      asInt}
+    {in     byVal   gint                    n         asInt}
+}
+# do unref
+
+::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_object_info_get_n_methods  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_object_info_get_method {
     {in     byVal   ptr                     info      asInt}
     {in     byVal   gint                    n         asInt}
 }
@@ -281,12 +301,16 @@ alias  ::gi::free   dlr::native::giFreeHeap
     {in     byVal   ptr                     info      asInt}
 }
 
+::dlr::declareCallToNative  cmd  gi  {byPtr ascii asString ignore}  g_function_info_get_symbol  {
+    {in     byVal   ptr                     info      asInt}
+}
+
 
 # #################  add-on dlr features supporting GI  ############################
 
 # like ::dlr::loadLib, but for GNOME libraries.
 #todo: more docs
-proc ::gi::loadSpace {metaAction  giSpace  giSpaceVersion} {
+proc ::gi::loadSpace {metaAction  giSpace  giSpaceVersion  fileNamePath} {
     set libAlias [giSpaceToLibAlias $giSpace]
     set errP 0
     set tlbP [::gi::g_irepository_require  $::gi::repoP  $giSpace  $giSpaceVersion  0  errP]
@@ -299,7 +323,7 @@ proc ::gi::loadSpace {metaAction  giSpace  giSpaceVersion} {
     }
     set ::gi::${libAlias}::tlbHandle $tlbP
     set ::gi::${libAlias}::version  $giSpaceVersion
-    source  [file join $::dlr::bindingDir  $libAlias  script  $libAlias.tcl]
+    ::dlr::loadLib  $metaAction  $libAlias  $fileNamePath
     return $tlbP
 }
 
@@ -351,73 +375,97 @@ proc ::gi::declareStructType {scriptAction  giSpace  structTypeName  membersDesc
 
 # base class for all script classes representing GNOME calls and data.
 # in other words, this is the script class representing GObject.
-#todo: is that accurate?  if so, can this be renamed to ::gi::class::GObject ?
-class ::gi::class::Base {
-    giSpace {}
-    giType  {}
-    scriptClass {}
-
+#todo: is that accurate?  if so, can this be renamed to gi.GObject ?
+# because :: doesn't work; Jim causes "invalid command name".  i don't feel like fixing Jim there.
+# dots work because class names are represented by commands, not variables.
+# scripts can use global commands without giving qualifiers.
+# as an added bonus, braces around embedded var names aren't needed because dots aren't var name chars.
+# devs from other languages can see the convention as similar to Java or C#.
+# Tk devs will have to adjust.
+#todo: eliminate the leading dot.
+#todo: submit a docs patch for namespaced classes, unsupported.
+class gi.BaseClass {
     giSelf  0
 }
+#todo: automatic cleanup.  in destructor?
 
 # declares the name of a new script class.
+# leading double-colons are used ahead of the dotted class name in all the setup routines.
+# however they aren't needed in app script, nor in other ::gi procs.
 proc ::gi::declareClass {giSpace  scriptClassNameBare  baseClassList  instanceVarsDict} {
     ::gi::requireSpace $giSpace
     set libAlias [giSpaceToLibAlias $giSpace]
-    set fullCls ::${libAlias}::class::${scriptClassNameBare}
-    class  $fullCls  [list ::gi::class::Base {*}$baseClassList]  \
-        [list  giSpace  $giSpace  giType  $scriptClassNameBare  \
-            scriptClass  $scriptClassNameBare  {*}$instanceVarsDict]
+    set fullCls ::$libAlias.$scriptClassNameBare
+    class  $fullCls  [list gi.BaseClass {*}$baseClassList]  $instanceVarsDict
+    ::gi::declareMethods  $giSpace  $scriptClassNameBare
 }
 
 # detects and declares all methods of a class, in bulk.
-proc ::gi::declareMethods {giSpace  scriptClassNameBare  fnNamePrefix} {
+proc ::gi::declareMethods {giSpace  scriptClassNameBare} {
     set libAlias [giSpaceToLibAlias $giSpace]
-    set fullCls ::${libAlias}::class::${scriptClassNameBare}
+    set fullCls ::$libAlias.$scriptClassNameBare
     if { ! [exists -command $fullCls]} {
-        error "Class $scriptClassNameFull does not exist."
+        error "Class $fullCls does not exist."
     }
 
     # find all methods from GI info.
-    set nInfos [::gi::g_irepository_get_n_infos  $::gi::repoP  $giSpace]
-    loop i 0 $nInfos {
-        set infoP [::gi::g_irepository_get_info  $::gi::repoP  $giSpace  $i]
-        set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $infoP]]
-        if {$tn eq {function}} {
-            set fnName [::gi::g_base_info_get_name $infoP]
-            if {[string match ${fnNamePrefix}* $fnName]} {
-                # declare a native call.
-                set parmsDescrip [list]
-                set nArgs [::gi::g_callable_info_get_n_args $infoP]
-                loop i 0 $nArgs {
-                    lappend parmsDescrip [::gi::argToDescrip [::gi::g_callable_info_get_arg $infoP $i]]
-                }
-                ::dlr::declareCallToNative  wrap  $libAlias  \
-                    [::gi::returnToDescrip $infoP]  $fnName  $parmsDescrip
+#todo: support GInterface the same as GObject.
+    set oInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  $giSpace  $scriptClassNameBare]
+    if {$oInfoP == 0} {
+        error "Type not found in '$giSpace': $scriptClassNameBare"
+    }
+    set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $oInfoP]]
+    if {$tn != {object}} {
+        error "Expected object type for '$scriptClassNameBare' but found '$tn' type instead."
+    }
+    set nMeth [::gi::g_object_info_get_n_methods $oInfoP]
+    loop i 0 $nMeth {
+        set mInfoP [::gi::g_object_info_get_method $oInfoP $i]
+        set mName  [::gi::g_base_info_get_name $mInfoP]
+        set fnName [::gi::g_function_info_get_symbol $mInfoP]
+
+        # declare a native call.
+        #todo: remove from dlrNative the special support for GNOME.  turns out it's not needed.
+        set parmsDescrip [list]
+        set nArgs [::gi::g_callable_info_get_n_args $mInfoP]
+        loop i 0 $nArgs {
+            lappend parmsDescrip [::gi::argToDescrip [::gi::g_callable_info_get_arg $mInfoP $i] $scriptClassNameBare]
+        }
+        ::dlr::declareCallToNative  wrap  $libAlias  \
+            [::gi::returnToDescrip $mInfoP]  $fnName  $parmsDescrip
 
 #todo: factor out to a distinct generator routine.  tie into refreshMeta.
-                # wrap that native call in a script class method.
-                # each parameter will be thunked verbatim, except 'self'.
-                set mName [string range $fnName [string length $fnNamePrefix] end]
-                set mFormalParms [list]
-                set dlrCallParms [list]
-                foreach pDesc $parmsDescrip {
-                    lassign $pDesc  dir  passMethod  type  name  scriptForm  memAction
-                    if {$name eq {self}} {
-                        lappend dlrCallParms
-                    } else {
-                        if {$passMethod eq {byVal}} {
-                            lappend mFormalParms $name
-                            lappend dlrCallParms \$$name
-                        } else {
-                            lappend mFormalParms &$name
-                            lappend dlrCallParms $name
-                        }
-                    }
+        # wrap that native call in a script class method.
+        # each parameter will be thunked verbatim, except 'self'.
+        set mFormalParms [list]
+        set dlrCallParms [list]
+        foreach pDesc $parmsDescrip {
+            lassign $pDesc  dir  passMethod  type  name  scriptForm  memAction
+            if {$name eq {self}} {
+                lappend dlrCallParms \$giSelf
+            } else {
+                if {$passMethod eq {byVal}} {
+                    lappend mFormalParms $name
+                    lappend dlrCallParms \$$name
+                } else {
+                    lappend mFormalParms &$name
+                    lappend dlrCallParms $name
                 }
-                set body "\n    ::dlr::lib::${libAlias}::$fnName  $dlrCallParms"
-                $fullCls  method  $mName  $mFormalParms  $body
             }
+        }
+        if {$mName eq {new}} {
+            # special case wraps a constructor.  many of these constructors accept parameters.
+            # in Jim it must be implemented as a factory in a class method.
+            # it's called 'new', to match GNOME's convention.
+            # first, Jim's own 'new' command is renamed out of the way.
+            rename "$fullCls new" "$fullCls _new"
+            set body "\n    set  objP  \[ ::dlr::lib::${libAlias}::${fnName}::call  $dlrCallParms \] \n"
+            append body "\n    if { \$objP == 0 } { error \"Object constructor failed: $fnName\" } \n"
+            append body "\n    return \[ $fullCls _new \[ list giSelf \$objP giSpace $giSpace \] \] \n"
+            proc  "$fullCls new"  $mFormalParms  $body
+        } else {
+            set body "\n    ::dlr::lib::${libAlias}::$fnName  $dlrCallParms \n"
+            $fullCls  method  $mName  $mFormalParms  $body
         }
     }
 }
@@ -434,7 +482,7 @@ proc ::gi::argToDescrip {argInfoP  scriptClassNameBare} {
     set dlrDir $::gi::GIDirection::toDlrDirection($dir)
 
     set typeInfoP  [::gi::g_arg_info_get_type $argInfoP]
-    lassign [::gi::typeToDescrip $typeInfoP $scriptClassNameBare]  \
+    lassign [::gi::typeToDescrip $typeInfoP]  \
         passMethod  dlrType  scriptForm  memAction
     ::gi::g_base_info_unref  $typeInfoP
 
@@ -448,14 +496,19 @@ proc ::gi::argToDescrip {argInfoP  scriptClassNameBare} {
 }
 
 proc ::gi::typeToDescrip {typeInfoP} {
-    set passMethod $( [::gi::g_type_info_is_pointer $typeInfoP]  ?  {byPtr}  :  {byVal} }
+    set passMethod $( [::gi::g_type_info_is_pointer $typeInfoP]  ?  {byPtr}  :  {byVal} )
 
     set tag [::gi::g_type_info_get_tag $typeInfoP]
-    if {$tag == $::gi::GITypeTag::toValue(INTERFACE)} {
-        set ifcP  [::gi::g_type_info_get_interface $typeInfoP]
-        set dlrType [::gi::g_base_info_get_name $ifcP]
-        ::gi::g_base_info_unref $ifcP
+    if {$::gi::GITypeTag::toName($tag) in {INTERFACE ARRAY} && $passMethod eq {byPtr}} {
+        #set ifcP  [::gi::g_type_info_get_interface $typeInfoP]
+        #set dlrType [::gi::g_base_info_get_name $ifcP]
+        #::gi::g_base_info_unref $ifcP
+        set dlrType ::dlr::simple::ptr
+        set passMethod byVal
     } else {
+        if { ! [exists ::gi::GITypeTag::toDlrType($tag)]} {
+            error "GI type tag $tag '$::gi::GITypeTag::toName($tag)' is not mapped to a dlr type."
+        }
         set dlrType $::gi::GITypeTag::toDlrType($tag)
     }
 
@@ -478,12 +531,10 @@ proc ::gi::typeToDescrip {typeInfoP} {
 # libgirepository functions are aliased into ::gi::$fnName
 # features of the target native library are aliased into ::$libAlias, usually as Jim OO classes.
 #todo: obsolete??
-proc ::gi::declareCallToNative {scriptAction  scriptClassNameFull  returnTypeDescrip  fnName  parmsDescrip} {
-    if { ! [exists -command $scriptClassNameFull]} {
-        error "Class $scriptClassNameFull does not exist."
-    }
-
-    $scriptClassNameFull  method
+proc ::gi::declareCallToNative {scriptAction  giSpace  returnTypeDescrip  fnName  parmsDescrip} {
+    ::gi::requireSpace $giSpace
+    set libAlias [giSpaceToLibAlias $giSpace]
+    set fQal ::dlr::lib::${libAlias}::${fnName}::
 
     # get GI callable info.
     set fnInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  GLib  assertion_message]

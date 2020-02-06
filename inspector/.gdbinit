@@ -12,6 +12,8 @@ set cwd .
 set env JIMLIB=../dlr:../dlrNative-src
 set solib-search-path .:..
 
+b jim.c:4134
+
 b jim-load.c:33
 r
 

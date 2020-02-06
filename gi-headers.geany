@@ -4,14 +4,14 @@ line_break_column=72
 auto_continue_multiline=false
 
 [file_prefs]
-final_new_line=true
+final_new_line=false
 ensure_convert_new_lines=false
-strip_trailing_spaces=true
-replace_tabs=true
+strip_trailing_spaces=false
+replace_tabs=false
 
 [indentation]
 indent_width=4
-indent_type=0
+indent_type=1
 indent_hard_tab_width=8
 detect_indent=false
 detect_indent_width=false
@@ -28,17 +28,26 @@ long_line_behaviour=1
 long_line_column=72
 
 [files]
-current_page=1
-FILE_NAME_0=0;C;1;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fjimsh%2Fjim.c;0;4
+current_page=13
+FILE_NAME_0=449243;C;1;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fjimsh%2Fjim.c;0;4
 FILE_NAME_1=0;C;1;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fjimsh%2Fjim.h;0;4
-FILE_NAME_2=0;C;1;EUTF-8;0;1;0;%2Fusr%2Finclude%2Fgobject-introspection-1.0%2Fgirepository.h;0;4
+FILE_NAME_2=4956;C;1;EUTF-8;0;1;0;%2Fusr%2Finclude%2Fgobject-introspection-1.0%2Fgirepository.h;0;4
 FILE_NAME_3=2622;C;1;EUTF-8;0;1;0;%2Fusr%2Finclude%2Fgobject-introspection-1.0%2Fgiarginfo.h;0;4
-FILE_NAME_4=4602;C;1;EUTF-8;0;1;0;%2Fusr%2Finclude%2Fgobject-introspection-1.0%2Fgitypes.h;0;4
+FILE_NAME_4=8772;C;1;EUTF-8;0;1;0;%2Fusr%2Finclude%2Fgobject-introspection-1.0%2Fgitypes.h;0;4
 FILE_NAME_5=2570;C;1;EUTF-8;0;1;0;%2Fusr%2Finclude%2Fgobject-introspection-1.0%2Fgifunctioninfo.h;0;4
-FILE_NAME_6=1238;C;1;EUTF-8;0;1;0;%2Fusr%2Finclude%2Fgobject-introspection-1.0%2Fgibaseinfo.h;0;4
+FILE_NAME_6=1657;C;1;EUTF-8;0;1;0;%2Fusr%2Finclude%2Fgobject-introspection-1.0%2Fgibaseinfo.h;0;4
+FILE_NAME_7=611;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fjimsh%2Fexamples%2Footest.tcl;0;4
+FILE_NAME_8=6;None;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fjimsh%2FREADME.oo;0;4
+FILE_NAME_9=62;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fgobj-introspec%2FnoClassVars.tcl;0;4
+FILE_NAME_10=45;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fgobj-introspec%2Fproc.tcl;0;4
+FILE_NAME_11=270;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fgobj-introspec%2Fnamespace.tcl;0;4
+FILE_NAME_12=1852;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fjimsh%2Foo.tcl;0;4
 
 [VTE]
 last_dir=/home
 
 [build-menu]
 error_regex=at file "(.*)", line ([0-9]+)|^(.+[^0-9]):([0-9]+):|\\((.+):([0-9]+)\\)
+NF_00_LB=_Make
+NF_00_CM=./jimsh  namespace.tcl
+NF_00_WD=%p/gobj-introspec

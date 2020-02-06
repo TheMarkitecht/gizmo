@@ -49,31 +49,25 @@ package require gizmo
 alias  ::get  set ;# allows "get" as an alternative to the one-argument "set", with much clearer intent.
 
 # command line.
-lassign $::argv  ::metaAction  ::giSpace  ::giSpaceVersion  namePattern
-if {$namePattern eq {}} {set namePattern * }
+#lassign $::argv  ::metaAction  ::giSpace  ::giSpaceVersion  namePattern
+#if {$namePattern eq {}} {set namePattern * }
+set ::metaAction refreshMeta
 
 # globals
 set ::appDir [file join [pwd] [file dirname [info script]]]
-
-# a few simple tests of the GI API, through dlr.
-set errP 0
-set tlbP [::gi::g_irepository_require  $::gi::repoP  GLib  2.0  0  errP]
-puts [format errP=$::dlr::ptrFmt $errP]
-assert {$errP == 0}
-puts [format tlbP=$::dlr::ptrFmt $tlbP]
-assert {$tlbP != 0}
-
-set fnInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  GLib  assertion_message]
-puts [format fnInfoP=$::dlr::ptrFmt $fnInfoP]
-assert {$fnInfoP != 0}
-
-set nArgs [::gi::g_callable_info_get_n_args $fnInfoP]
-puts nArgs=$nArgs
-assert {$nArgs == 5}
 
 # test a glib call.
 #todo: reinstate
 #::g::assertion_message  one  two  3  four  five
 #puts call-Done
 
-# puts [join [lsort [info commands ::dlr::lib::testLib::*]] \n]
+
+# test a gio class.
+::gi::loadSpace  $::metaAction  Gio  2.0  libgio-2.0.so
+# puts [join [lsort [info commands ::gio::*]] \n]
+set complr [gio.FilenameCompleter new]
+puts class=[$complr classname]
+puts methods=[$complr methods]
+#todo: call a method
+
+exit 0

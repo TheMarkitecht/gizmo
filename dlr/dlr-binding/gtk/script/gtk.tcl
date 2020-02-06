@@ -20,3 +20,9 @@
 ::gi::declareCallToNative  cmd  Gtk  {void}  gtk_widget_show_all  {
     {in     byVal   ptr     widget      asInt}
 }
+
+#::gi::declareClass  Gtk  GtkApplication  {}  {}
+#::gi::declareMethods Gtk  GtkApplication  g_application_
+# GtkApplication has a default instance.  that's unusual.
+# it's called ::gio::GtkApplication::instance.  it's set by the gizmo C code.
+

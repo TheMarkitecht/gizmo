@@ -46,7 +46,10 @@ proc rootInfos {} {
     return $ptrs
 }
 
-alias dump-function dump-callable
+proc dump-function {label  indent  infoP} {
+    puts "${indent}C-symbol: [::gi::g_function_info_get_symbol $infoP]"
+    dump-callable  $label  $indent  $infoP
+}
 
 alias dump-signal dump-callable
 
@@ -57,31 +60,43 @@ proc dump-callable {label  indent  infoP} {
     # parms
     set nArgs [::gi::g_callable_info_get_n_args $infoP]
     loop i 0 $nArgs {
-        dumpInfoUnref  {}  $indent  [::gi::g_callable_info_get_arg $infoP $i]
+        dumpInfoUnref  parm  $indent  [::gi::g_callable_info_get_arg $infoP $i]
     }
 }
 
 proc dump-arg {label  indent  infoP} {
     set dir [::gi::g_arg_info_get_direction $infoP]
-    puts "$indent$::gi::GIDirection::toName($dir)"
+    puts "${indent}dir: $::gi::GIDirection::toName($dir)"
 
-    dumpTypeInfoUnref  {}  $indent  [::gi::g_arg_info_get_type $infoP]
+    dumpTypeInfoUnref  type  $indent  [::gi::g_arg_info_get_type $infoP]
 }
 
 proc dump-interface {label  indent  infoP} {
+    # methods
+    set nMeth [::gi::g_interface_info_get_n_methods $infoP]
+    loop i 0 $nMeth {
+        dumpInfoUnref  method  $indent  [::gi::g_interface_info_get_method $infoP $i]
+    }
+
     # signals
     set nSigs [::gi::g_interface_info_get_n_signals $infoP]
     loop i 0 $nSigs {
-        dumpInfoUnref  {}  $indent  [::gi::g_interface_info_get_signal $infoP $i]
+        dumpInfoUnref  signal  $indent  [::gi::g_interface_info_get_signal $infoP $i]
     }
 }
 
 # this really should be dump-class, but GNOME calls it object.
 proc dump-object {label  indent  infoP} {
+    # methods
+    set nMeth [::gi::g_object_info_get_n_methods $infoP]
+    loop i 0 $nMeth {
+        dumpInfoUnref  method  $indent  [::gi::g_object_info_get_method $infoP $i]
+    }
+
     # signals
     set nSigs [::gi::g_object_info_get_n_signals $infoP]
     loop i 0 $nSigs {
-        dumpInfoUnref  {}  $indent  [::gi::g_object_info_get_signal $infoP $i]
+        dumpInfoUnref  signal  $indent  [::gi::g_object_info_get_signal $infoP $i]
     }
 }
 
@@ -153,7 +168,7 @@ proc dumpTypeInfo {label  indent  typeInfoP} {
     if {$tag == $::gi::GITypeTag::toValue(INTERFACE)} {
         set ifcP  [::gi::g_type_info_get_interface $typeInfoP]
         set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $ifcP]]
-        puts "$indent<${tn}> : [::gi::g_base_info_get_name $ifcP]"
+        puts "$indent    <${tn}> : [::gi::g_base_info_get_name $ifcP]"
         ::gi::g_base_info_unref $ifcP
     }
 }
