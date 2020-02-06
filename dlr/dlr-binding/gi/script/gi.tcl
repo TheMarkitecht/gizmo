@@ -98,6 +98,8 @@ foreach {name typ} {
 } {
     dict set  ::gi::GITypeTag::toDlrType  $::gi::GITypeTag::toValue($name)  $typ
 }
+#todo: delete
+#set  ::gi::GITypeTag::memManagedNames  {INTERFACE ARRAY}
 
 # don't use this.  it causes all subsequent find_by_name to fail.
 #todo: change braces to quote marks?
@@ -390,23 +392,35 @@ class gi.BaseClass {
 #todo: automatic cleanup.  in destructor?
 
 # declares the name of a new script class.
-# leading double-colons are used ahead of the dotted class name in all the setup routines.
-# however they aren't needed in app script, nor in other ::gi procs.
 proc ::gi::declareClass {giSpace  scriptClassNameBare  baseClassList  instanceVarsDict} {
     ::gi::requireSpace $giSpace
     set libAlias [giSpaceToLibAlias $giSpace]
-    set fullCls ::$libAlias.$scriptClassNameBare
+    set fullCls $libAlias.$scriptClassNameBare
     class  $fullCls  [list gi.BaseClass {*}$baseClassList]  $instanceVarsDict
     ::gi::declareMethods  $giSpace  $scriptClassNameBare
 }
 
+proc ::gi::declareAllClasses {giSpace} {
+    set nInfos [::gi::g_irepository_get_n_infos  $::gi::repoP  $giSpace]
+    loop i 0 $nInfos {
+        set infoP  [::gi::g_irepository_get_info  $::gi::repoP  $giSpace  $i]
+        set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $infoP]]
+        if {$tn eq {object}} {
+            ::gi::declareClass  $giSpace  [::gi::g_base_info_get_name $infoP]  {}  {}
+        }
+    }
+}
+
 # detects and declares all methods of a class, in bulk.
+# leading double-colons are used ahead of the dotted class name in this routine.
+# however they aren't needed in app script, nor in other ::gi procs.
 proc ::gi::declareMethods {giSpace  scriptClassNameBare} {
     set libAlias [giSpaceToLibAlias $giSpace]
     set fullCls ::$libAlias.$scriptClassNameBare
     if { ! [exists -command $fullCls]} {
         error "Class $fullCls does not exist."
     }
+puts class=$fullCls
 
     # find all methods from GI info.
 #todo: support GInterface the same as GObject.
@@ -423,12 +437,14 @@ proc ::gi::declareMethods {giSpace  scriptClassNameBare} {
         set mInfoP [::gi::g_object_info_get_method $oInfoP $i]
         set mName  [::gi::g_base_info_get_name $mInfoP]
         set fnName [::gi::g_function_info_get_symbol $mInfoP]
+puts method=$mName
 
         # declare a native call.
         #todo: remove from dlrNative the special support for GNOME.  turns out it's not needed.
         set parmsDescrip [list]
         set nArgs [::gi::g_callable_info_get_n_args $mInfoP]
         loop i 0 $nArgs {
+puts arg=$i
             lappend parmsDescrip [::gi::argToDescrip [::gi::g_callable_info_get_arg $mInfoP $i] $scriptClassNameBare]
         }
         ::dlr::declareCallToNative  wrap  $libAlias  \
@@ -499,14 +515,18 @@ proc ::gi::typeToDescrip {typeInfoP} {
     set passMethod $( [::gi::g_type_info_is_pointer $typeInfoP]  ?  {byPtr}  :  {byVal} )
 
     set tag [::gi::g_type_info_get_tag $typeInfoP]
-    if {$::gi::GITypeTag::toName($tag) in {INTERFACE ARRAY} && $passMethod eq {byPtr}} {
-        #set ifcP  [::gi::g_type_info_get_interface $typeInfoP]
-        #set dlrType [::gi::g_base_info_get_name $ifcP]
-        #::gi::g_base_info_unref $ifcP
+    set haveDlrType  [exists ::gi::GITypeTag::toDlrType($tag)]
+    if {$passMethod eq {byPtr}} {
+        if {$haveDlrType} {
+            #set ifcP  [::gi::g_type_info_get_interface $typeInfoP]
+            #set dlrType [::gi::g_base_info_get_name $ifcP]
+            #::gi::g_base_info_unref $ifcP
+        } else {
+        }
         set dlrType ::dlr::simple::ptr
         set passMethod byVal
     } else {
-        if { ! [exists ::gi::GITypeTag::toDlrType($tag)]} {
+        if { ! $haveDlrType} {
             error "GI type tag $tag '$::gi::GITypeTag::toName($tag)' is not mapped to a dlr type."
         }
         set dlrType $::gi::GITypeTag::toDlrType($tag)

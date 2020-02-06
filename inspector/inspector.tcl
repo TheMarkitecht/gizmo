@@ -29,15 +29,85 @@ proc assert {exp} {
     }
 }
 
-proc loadSpace {giSpace  giSpaceVersion} {
+proc dget {dicV args} {
+    set keys [lrange $args 0 end-1]
+    set default [lindex $args end]
+    return $( [dict exists $dicV {*}$keys] ? [dict get $dicV {*}$keys] : $default )
+}
+
+proc out {txt} {
+    puts [format {%4d %s} $::lineNum $txt]
+    incr ::lineNum
+}
+
+proc outPartial {txt} {
+    puts -nonewline $txt
+}
+
+class GroupRecord {cnt 0 see {}}
+GroupRecord method incr {} {incr cnt}
+GroupRecord method see {lineNum} {set see $lineNum}
+
+class GroupKey {tag {} isP {} tn {} ifcName {} key {}}
+proc "GroupKey fromType" {tag isP tn ifcName} {
+    # 'key' is the identifying string for use as a key to ::tot dict.
+    # ifcName is disregarded for grouping right now.
+    set gk [GroupKey new [list tag $tag isP $isP tn $tn ifcName $ifcName key [list $tag $isP $tn]]]
+    return $gk
+}
+proc "GroupKey fromKey" {keyStr} {
+    # 'key' is the identifying string for use as a key to ::tot dict.
+    # ifcName is disregarded for grouping right now.
+    lassign $keyStr tag isP tn
+    GroupKey new [list tag $tag isP $isP tn $tn ifcName {} key $keyStr]
+}
+GroupKey method tagName {} {return $::gi::GITypeTag::toName($tag)}
+GroupKey method dlrType {} {dget $::gi::GITypeTag::toDlrType $tag unmapped}
+GroupKey method atRisk {} { return $( [$self dlrType] eq {unmapped} && ! $isP ) }
+GroupKey method appearsOn {lineNum} {
+    if {[dict exists $::tot $key]} {
+        $::tot($key) incr
+    } else {
+        set ::tot($key)  [GroupRecord new {cnt 1}]
+    }
+    if {[$self atRisk]} {
+        $::tot($key) see $lineNum
+    }
+}
+GroupKey method format {} {
+    set grp $::tot($key)
+    set pv $( $isP ? {ptr} : {} )
+    set risk $( [$grp get see] eq {} ? {} : "AT RISK see [$grp get see]" )
+    return [format "    %5d %16s %3s %16s %-26s %-26s %s"  \
+        [$grp get cnt]  [$self tagName]  $pv  $tn  $ifcName  [$self dlrType]  $risk ]
+}
+
+proc compareCnt {ka kb} {
+    set a [$::tot($ka) get cnt]
+    set b [$::tot($kb) get cnt]
+    if {$a < $b} {return -1}
+    if {$a > $b} {return 1}
+    return 0
+}
+
+proc reportGroups {} {
+    # show total occurrences of argument types.
+    set flat [lsort -command compareCnt -decreasing [dict keys $::tot]]
+    out Totals:
+    foreach keyStr $flat {
+        puts [[GroupKey fromKey $keyStr] format]
+    }
+}
+
+proc loadSpace {giSpace  giSpaceVersion  soPath} {
     set ::giSpace  $giSpace
     set ::giSpaceVersion  $giSpaceVersion
-    set tlbP [::gi::loadSpace  $::metaAction  $giSpace  $giSpaceVersion]
-    puts "space=$giSpace  v=$giSpaceVersion  tlbP=[format $::dlr::ptrFmt $tlbP]"
+    set tlbP [::gi::loadSpace  $::metaAction  $giSpace  $giSpaceVersion  $soPath]
+    out "space=$giSpace  v=$giSpaceVersion  tlbP=[format $::dlr::ptrFmt $tlbP]"
 }
 
 proc rootInfos {} {
-    puts "rootInfos  space=$::giSpace"
+    out "rootInfos  space=$::giSpace"
     set nInfos [::gi::g_irepository_get_n_infos  $::gi::repoP  $::giSpace]
     set ptrs [list]
     loop i 0 $nInfos {
@@ -47,7 +117,7 @@ proc rootInfos {} {
 }
 
 proc dump-function {label  indent  infoP} {
-    puts "${indent}C-symbol: [::gi::g_function_info_get_symbol $infoP]"
+    out "${indent}C-symbol: [::gi::g_function_info_get_symbol $infoP]"
     dump-callable  $label  $indent  $infoP
 }
 
@@ -66,9 +136,10 @@ proc dump-callable {label  indent  infoP} {
 
 proc dump-arg {label  indent  infoP} {
     set dir [::gi::g_arg_info_get_direction $infoP]
-    puts "${indent}dir: $::gi::GIDirection::toName($dir)"
+    out "${indent}dir: $::gi::GIDirection::toName($dir)"
 
-    dumpTypeInfoUnref  type  $indent  [::gi::g_arg_info_get_type $infoP]
+    set groupKey [dumpTypeInfoUnref  type  $indent  [::gi::g_arg_info_get_type $infoP]]
+    $groupKey appearsOn $::lineNum
 }
 
 proc dump-interface {label  indent  infoP} {
@@ -105,7 +176,7 @@ proc dump-object {label  indent  infoP} {
 proc dumpInfo {label  indent  infoP} {
     if {$label ne {}} {append label { : }}
     set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $infoP]]
-    puts "$indent${label}<${tn}> : [::gi::g_base_info_get_name $infoP]"
+    out "$indent${label}<${tn}> : [::gi::g_base_info_get_name $infoP]"
 
     # arbitrary string attributes.  evidently uncommon.
     set name {}
@@ -113,9 +184,8 @@ proc dumpInfo {label  indent  infoP} {
     set header "$indent    attributes\n"
     set iterP [::dlr::lib::gi::struct::GIAttributeIter::packNew  iter]
     while {[::gi::g_base_info_iterate_attributes  $infoP  $iterP  name  value]} {
-        puts -nonewline $header
+        out "$header$indent        $name : $value"
         set header {}
-        puts "$indent        $name : $value"
     }
 
     # info-type-specific stuff.
@@ -130,8 +200,9 @@ proc dumpInfoUnref {label  indent  ptr} {
 }
 
 proc dumpTypeInfoUnref {label  indent  typeInfoP} {
-    dumpTypeInfo  $label  $indent  $typeInfoP
+    set groupKey [dumpTypeInfo  $label  $indent  $typeInfoP]
     ::gi::g_base_info_unref $typeInfoP
+    return $groupKey
 }
 
 proc dumpTypeInfo {label  indent  typeInfoP} {
@@ -144,10 +215,10 @@ proc dumpTypeInfo {label  indent  typeInfoP} {
     # hasn't already been printed.
     if {$label ne {}} {append label { : }}
     set tag [::gi::g_type_info_get_tag $typeInfoP]
-    #puts "$indent${label}typeInfo tag $tag : [::gi::g_info_type_to_string $tag]"
+    #out "$indent${label}typeInfo tag $tag : [::gi::g_info_type_to_string $tag]"
     #todo: g_info_type_to_string gives the wrong names.
     set dTyp  $( [dict exists $::gi::GITypeTag::toDlrType $tag]  ?  $::gi::GITypeTag::toDlrType($tag)  :  {} )
-    puts "$indent${label}typeInfo tag $tag : $::gi::GITypeTag::toName($tag) : $dTyp"
+    out "$indent${label}typeInfo tag $tag : $::gi::GITypeTag::toName($tag) : $dTyp"
 
     #todo: param_type offers no upper limit to its index?  and, turns out, it's a bottomless recursion too.
     #loop i 0 1 {
@@ -155,26 +226,33 @@ proc dumpTypeInfo {label  indent  typeInfoP} {
             #[::gi::g_type_info_get_param_type $typeInfoP $i]
     #}
 
-    if {[::gi::g_type_info_is_pointer $typeInfoP]} {
-        puts "$indent    is pointer."
+    set isP [::gi::g_type_info_is_pointer $typeInfoP]
+    if {$isP} {
+        out "$indent    is pointer."
     }
 
     # this is actually the length of each tuple within the array.
     set len [::gi::g_type_info_get_array_length $typeInfoP]
     if {$len >= 0} {
-        puts "$indent    tuple length $len"
+        out "$indent    tuple length $len"
     }
 
+    set tn {}
+    set ifcName {}
     if {$tag == $::gi::GITypeTag::toValue(INTERFACE)} {
         set ifcP  [::gi::g_type_info_get_interface $typeInfoP]
         set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $ifcP]]
-        puts "$indent    <${tn}> : [::gi::g_base_info_get_name $ifcP]"
+        set ifcName [::gi::g_base_info_get_name $ifcP]
+        out "$indent    <${tn}> : $ifcName"
         ::gi::g_base_info_unref $ifcP
     }
+
+    set gk [GroupKey fromType $tag $isP $tn $ifcName]
+    return $gk
 }
 
 # command line.
-lassign $::argv  ::metaAction  ::giSpace  ::giSpaceVersion  namePattern
+lassign $::argv  ::metaAction  ::giSpace  ::giSpaceVersion  ::soPath  namePattern
 if {$namePattern eq {}} {set namePattern * }
 
 # required packages.
@@ -190,14 +268,18 @@ if { ! $::dlr::giEnabled} {
 alias  ::get  set ;# allows "get" as an alternative to the one-argument "set", with much clearer intent.
 
 # globals
+set ::lineNum 1
+set ::tot [dict create]
 
 # dump all available infos
-loadSpace  $::giSpace  $::giSpaceVersion
+loadSpace  $::giSpace  $::giSpaceVersion  $::soPath
 set roots [rootInfos]
-puts "[llength $roots] total root infos"
+out "[llength $roots] total root infos"
 foreach infoP $roots {
     set name [::gi::g_base_info_get_name $infoP]
     if {[string match -nocase $namePattern $name]} {
         dumpInfo  {}  {}  $infoP
     }
 }
+
+reportGroups
