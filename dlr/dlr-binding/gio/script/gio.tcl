@@ -3,4 +3,4 @@
 
 #::gi::declareClass  Gio  FilenameCompleter  {}  {}
 
-#::gi::declareAllClasses  Gio
+::gi::declareAllClasses  Gio

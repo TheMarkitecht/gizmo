@@ -488,21 +488,22 @@ puts arg=$i
 
 proc ::gi::returnToDescrip {callableInfoP} {
     set typeInfoP  [::gi::g_callable_info_get_return_type $callableInfoP]
-    set descrip [::gi::typeToDescrip $typeInfoP]
+    lassign [::gi::typeToDescrip $typeInfoP return noName]  \
+        dlrDir  passMethod  dlrType  dlrName  scriptForm  memAction
     ::gi::g_base_info_unref  $typeInfoP
-    return $descrip
+    return  [list  $passMethod  $dlrType  $scriptForm  $memAction]
 }
 
 proc ::gi::argToDescrip {argInfoP  scriptClassNameBare} {
     set dir [::gi::g_arg_info_get_direction $argInfoP]
     set dlrDir $::gi::GIDirection::toDlrDirection($dir)
+    set dlrName  [::gi::g_base_info_get_name $argInfoP]
 
     set typeInfoP  [::gi::g_arg_info_get_type $argInfoP]
-    lassign [::gi::typeToDescrip $typeInfoP]  \
-        passMethod  dlrType  scriptForm  memAction
+    lassign [::gi::typeToDescrip $typeInfoP $dlrDir $dlrName]  \
+        dlrDir  passMethod  dlrType  dlrName  scriptForm  memAction
     ::gi::g_base_info_unref  $typeInfoP
 
-    set dlrName  [::gi::g_base_info_get_name $argInfoP]
     if {$passMethod eq {byPtr} && $dlrType eq $scriptClassNameBare} {
         # assume this is the "self" parm, to pass the object instance pointer to the function.
         set dlrName self
@@ -511,33 +512,100 @@ proc ::gi::argToDescrip {argInfoP  scriptClassNameBare} {
     return  [list  $dlrDir  $passMethod  $dlrType  $dlrName  $scriptForm  $memAction]
 }
 
-proc ::gi::typeToDescrip {typeInfoP} {
-    set passMethod $( [::gi::g_type_info_is_pointer $typeInfoP]  ?  {byPtr}  :  {byVal} )
+proc ::gi::descripCase-dlrByVal {} { uplevel 1 {
+    set dlrType $::gi::GITypeTag::toDlrType($tag)
+    set passMethod byVal
+}}
 
-    set tag [::gi::g_type_info_get_tag $typeInfoP]
-    set haveDlrType  [exists ::gi::GITypeTag::toDlrType($tag)]
-    if {$passMethod eq {byPtr}} {
-        if {$haveDlrType} {
-            #set ifcP  [::gi::g_type_info_get_interface $typeInfoP]
-            #set dlrType [::gi::g_base_info_get_name $ifcP]
-            #::gi::g_base_info_unref $ifcP
-        } else {
+proc ::gi::descripCase-dlrByPtr {} { uplevel 1 {
+    #set ifcP  [::gi::g_type_info_get_interface $typeInfoP]
+    #set dlrType [::gi::g_base_info_get_name $ifcP]
+    #::gi::g_base_info_unref $ifcP
+    set dlrType $::gi::GITypeTag::toDlrType($tag)
+    set passMethod byPtr
+}}
+
+proc ::gi::descripCase-forcePtr {} { uplevel 1 {
+    set dlrType ::dlr::simple::ptr
+    set passMethod byVal
+}}
+
+proc ::gi::typeToDescrip {typeInfoP dir parmName} {
+    if { ! [exists ::gi::descripCases]} {
+        # match actual situation to one row of this dispatch table of different cases.
+        # the matching row indicates the usable handler.
+        # that is the topmost row where every cell in the row matches the actual situation.
+        # each table cell can contain a pattern for [string match], or a list of those.
+        # if any pattern in the list matches, the cell is a match.
+        # a handler name may appear on more than one row; that's fine.
+        # pattern columns:
+        #     dir           tagName         passMethod  ifcType         haveDlrType handler
+        set ::gi::descripCases {
+            { *             *               byVal       *               yes         dlrByVal           }
+            { *             *               byPtr       *               yes         dlrByPtr           }
+            { *             *               byPtr       *               *           forcePtr           }
         }
-        set dlrType ::dlr::simple::ptr
-        set passMethod byVal
-    } else {
-        if { ! $haveDlrType} {
-            error "GI type tag $tag '$::gi::GITypeTag::toName($tag)' is not mapped to a dlr type."
+
+        # verify table integrity.
+        set allHandlers [lmap row $::gi::descripCases {lindex $row end}]
+        # verify each row.
+        foreach handler $allHandlers {
+            if { ! [exists -command ::gi::descripCase-$handler]} {
+                error "Handler '$handler' is mentioned in dispatch table, but is not implemented."
+            }
         }
-        set dlrType $::gi::GITypeTag::toDlrType($tag)
+        # verify each proc.
+        foreach cmd [info commands ::gi::descripCase-*] {
+            set handler [string range $cmd 18 end]
+            if {$handler ni $allHandlers} {
+                error "Handler '$handler' is implemented, but not mentioned in dispatch table."
+            }
+        }
     }
 
-    set scriptForm  [lindex [get ${dlrType}::scriptForms] 0]
+    # ### select handler.
+    # detect or derive certain conditions which can be used during handler selection.
+    set passMethod $( [::gi::g_type_info_is_pointer $typeInfoP]  ?  {byPtr}  :  {byVal} )
+    set tag [::gi::g_type_info_get_tag $typeInfoP]
+    set tagName $::gi::GITypeTag::toName($tag)
+    set haveDlrType $( [exists ::gi::GITypeTag::toDlrType($tag)]  ?  {yes}  :  {no} )
+    set ifcType {}
+    set ifcName {}
+    if {$tag == $::gi::GITypeTag::toValue(INTERFACE)} {
+        set ifcP  [::gi::g_type_info_get_interface $typeInfoP]
+        set ifcType [::gi::g_info_type_to_string [::gi::g_base_info_get_type $ifcP]]
+        set ifcName [::gi::g_base_info_get_name $ifcP]
+        ::gi::g_base_info_unref $ifcP
+puts "interface: <$ifcType> $ifcName"
+    }
 
+    # search the rows for a match.
+    set foundHandler {}
+    foreach row $::gi::descripCases {
+        set rowOK 1
+        foreach col {0 1 2 3 4} var {dir  tagName  passMethod  ifcType  haveDlrType} {
+            set colOK 0
+            foreach pat [lindex $row $col] {
+                set colOK $( $colOK || [string match $pat [get $var]] )
+            }
+            set rowOK $( $rowOK && $colOK )
+        }
+        if {$rowOK} {
+            set foundHandler [lindex $row end]
+            break
+        }
+    }
+    # error if no handler was found.
+    if {$foundHandler eq {}} {
+        error "Unsupported configuration for parameter type:  $dir  $tagName  $passMethod  $ifcType"
+    }
+
+    # ### compose description per the chosen handler.
     set memAction  ignore
     #todo: set memAction per the ownership transfer type.
-
-    return  [list  $passMethod  $dlrType  $scriptForm  $memAction]
+    ::gi::descripCase-$foundHandler
+    set scriptForm  [lindex [get ${dlrType}::scriptForms] 0]
+    return  [list  $dir  $passMethod  $dlrType  $parmName  $scriptForm  $memAction]
 }
 
 # like ::dlr::declareCallToNative, but for GNOME calls instead (those described by GI).

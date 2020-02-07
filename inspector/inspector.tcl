@@ -48,18 +48,19 @@ class GroupRecord {cnt 0 see {}}
 GroupRecord method incr {} {incr cnt}
 GroupRecord method see {lineNum} {set see $lineNum}
 
-class GroupKey {tag {} isP {} tn {} ifcName {} key {}}
-proc "GroupKey fromType" {tag isP tn ifcName} {
+class GroupKey {tag {} isP {} ifcType {} ifcName {} key {}}
+proc "GroupKey fromType" {tag isP ifcType ifcName} {
     # 'key' is the identifying string for use as a key to ::tot dict.
     # ifcName is disregarded for grouping right now.
-    set gk [GroupKey new [list tag $tag isP $isP tn $tn ifcName $ifcName key [list $tag $isP $tn]]]
+    set gk [GroupKey new [list tag $tag isP $isP ifcType $ifcType \
+        ifcName $ifcName key [list $tag $isP $ifcType]]]
     return $gk
 }
 proc "GroupKey fromKey" {keyStr} {
     # 'key' is the identifying string for use as a key to ::tot dict.
     # ifcName is disregarded for grouping right now.
-    lassign $keyStr tag isP tn
-    GroupKey new [list tag $tag isP $isP tn $tn ifcName {} key $keyStr]
+    lassign $keyStr tag isP ifcType
+    GroupKey new [list tag $tag isP $isP ifcType $ifcType ifcName {} key $keyStr]
 }
 GroupKey method tagName {} {return $::gi::GITypeTag::toName($tag)}
 GroupKey method dlrType {} {dget $::gi::GITypeTag::toDlrType $tag unmapped}
@@ -70,16 +71,14 @@ GroupKey method appearsOn {lineNum} {
     } else {
         set ::tot($key)  [GroupRecord new {cnt 1}]
     }
-    if {[$self atRisk]} {
-        $::tot($key) see $lineNum
-    }
+    $::tot($key) see $lineNum
 }
 GroupKey method format {} {
     set grp $::tot($key)
     set pv $( $isP ? {ptr} : {} )
-    set risk $( [$grp get see] eq {} ? {} : "AT RISK see [$grp get see]" )
+    set risk "$( [$self atRisk] ? {AT RISK } : {} )see [$grp get see]"
     return [format "    %5d %16s %3s %16s %-26s %-26s %s"  \
-        [$grp get cnt]  [$self tagName]  $pv  $tn  $ifcName  [$self dlrType]  $risk ]
+        [$grp get cnt]  [$self tagName]  $pv  $ifcType  $ifcName  [$self dlrType]  $risk ]
 }
 
 proc compareCnt {ka kb} {
@@ -237,17 +236,17 @@ proc dumpTypeInfo {label  indent  typeInfoP} {
         out "$indent    tuple length $len"
     }
 
-    set tn {}
+    set ifcType {}
     set ifcName {}
     if {$tag == $::gi::GITypeTag::toValue(INTERFACE)} {
         set ifcP  [::gi::g_type_info_get_interface $typeInfoP]
-        set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $ifcP]]
+        set ifcType [::gi::g_info_type_to_string [::gi::g_base_info_get_type $ifcP]]
         set ifcName [::gi::g_base_info_get_name $ifcP]
-        out "$indent    <${tn}> : $ifcName"
+        out "$indent    <${ifcType}> : $ifcName"
         ::gi::g_base_info_unref $ifcP
     }
 
-    set gk [GroupKey fromType $tag $isP $tn $ifcName]
+    set gk [GroupKey fromType $tag $isP $ifcType $ifcName]
     return $gk
 }
 
