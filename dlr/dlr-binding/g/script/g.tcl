@@ -5,16 +5,18 @@ alias  ::g::free   dlr::native::giFreeHeap
 
 ::gi::typedef  ptr  GType
 
-::gi::declareStructType  convert  GLib  GError  {
-    {GQuark     domain      asInt}
-    {gint       code        asInt}
-    {ptr        message     asInt}
-}
+set disabled {
+    ::dlr::declareStructType  convert  GLib  GError  {
+        {GQuark     domain      asInt}
+        {gint       code        asInt}
+        {ptr        message     asInt}
+    }
 
-proc ::g::checkGError {errP} {
-    if {$errP != 0} {
-        set err [::dlr::lib::g::struct::GError::unpack-scriptPtr-asDict  $errP]
-        error "GError: [::dlr::simple::ascii::unpack-scriptPtr-asString $err(message)]"
+    proc ::g::checkGError {errP} {
+        if {$errP != 0} {
+            set err [::dlr::lib::g::struct::GError::unpack-scriptPtr-asDict  $errP]
+            error "GError: [::dlr::simple::ascii::unpack-scriptPtr-asString $err(message)]"
+        }
     }
 }
 

@@ -48,10 +48,12 @@ proc ::gi::popCompiler {} {
 
 # #################  GNOME and GI simple types  ############################
 # these are using ::dlr::typedef rather than ::gi::typedef because it's not initialized yet.
-::dlr::typedef  int  gint
-::dlr::typedef  u32  enum
-::dlr::typedef  u32  GQuark
-::dlr::typedef  gint gboolean
+::dlr::typedef  int         gint
+::dlr::typedef  u32         enum
+::dlr::typedef  u32         GQuark
+::dlr::typedef  gint        gboolean
+::dlr::typedef  ptr         callback
+::dlr::typedef  uLong       gsize
 
 # based on GI_TYPE_TAG_*
 ::dlr::declareEnum  gi  gint  GITypeTag  {
@@ -307,6 +309,33 @@ alias  ::gi::free   dlr::native::giFreeHeap
     {in     byVal   ptr                     info      asInt}
 }
 
+::dlr::declareCallToNative  cmd  gi  {byVal gsize asInt}  g_struct_info_get_size  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_struct_info_get_n_fields  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_struct_info_get_field  {
+    {in     byVal   ptr                     info      asInt}
+    {in     byVal   gint                    n         asInt}
+}
+# do unref
+
+::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_field_info_get_offset  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_field_info_get_size  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_field_info_get_type  {
+    {in     byVal   ptr                     info      asInt}
+}
+# do unref
+
 
 # #################  add-on dlr features supporting GI  ############################
 
@@ -366,13 +395,56 @@ proc ::gi::declareEnum {giSpace  baseTypeSimpleBare  enumTypeBareName  valueMap}
     ::dlr::declareEnum $libAlias  $baseTypeSimpleBare  $enumTypeBareName  $valueMap
 }
 
-proc ::gi::declareStructType {scriptAction  giSpace  structTypeName  membersDescrip} {
+# this is the required first step before using a struct type.
+#todo: documentation
+proc ::gi::declareStructType {scriptAction  giSpace  structTypeName} {
     ::gi::requireSpace $giSpace
     set libAlias [giSpaceToLibAlias $giSpace]
-    ::gi::pushCompiler
-    ::dlr::declareStructType $scriptAction  $libAlias  $structTypeName  $membersDescrip
-    #todo: fetch struct members from GI so they don't have to be declared.
-    ::gi::popCompiler
+    set sQal ::dlr::lib::${libAlias}::struct::${structTypeName}::
+
+    # find structure info
+    set sInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  $giSpace  $structTypeName]
+    if {$sInfoP == 0} {
+        error "Type not found in '$giSpace': $structTypeName"
+    }
+    set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $sInfoP]]
+    if {$tn != {struct}} {
+        error "Expected struct type for '$structTypeName' but found '$tn' type instead."
+    }
+    set ${sQal}size  [::gi::g_struct_info_get_size $sInfoP]
+
+    # iterate member info's
+    set ${sQal}memberOrder [list]
+    set nMems [::gi::g_struct_info_get_n_fields $sInfoP]
+    loop i 0 $nMems {
+        set mInfoP [::gi::g_struct_info_get_field $sInfoP $i]
+        set mName [::gi::g_base_info_get_name $mInfoP]
+        lappend ${sQal}memberOrder  $mName
+        set mQal ${sQal}member::${mName}::
+
+        lassign [::gi::typeToDescrip  [::gi::g_field_info_get_type $mInfoP]  inOut  $mName]  \
+            dir  passMethod  dlrType  parmName  scriptForm  memAction
+        set mPassType $( $passMethod eq {byVal}  ?  $dlrType  :  {::dlr::simple::ptr} )
+        lappend typeMeta [::dlr::selectTypeMeta $mPassType]
+
+        set ${mQal}offset [::gi::g_field_info_get_offset $mInfoP]
+        ::gi::g_base_info_unref $mInfoP
+    }
+    ::gi::g_base_info_unref $sInfoP
+
+    # prep FFI type record for this structure.
+    ::dlr::prepStructType  ${sQal}meta  $typeMeta
+
+    # generate and apply converter scripts.
+    if {[refreshMeta] || ! [file readable [structConverterPath $libAlias $structTypeName]]} {
+        generateStructConverters  $libAlias  $structTypeName
+    }
+    if {$scriptAction ni {noScript convert}} {
+        error "Invalid script action: $scriptAction"
+    }
+    if {$scriptAction eq {convert}} {
+        source [structConverterPath  $libAlias  $structTypeName]
+    }
 }
 
 # base class for all script classes representing GNOME calls and data.
@@ -400,14 +472,30 @@ proc ::gi::declareClass {giSpace  scriptClassNameBare  baseClassList  instanceVa
     ::gi::declareMethods  $giSpace  $scriptClassNameBare
 }
 
+proc ::gi::declareAllInfos {giSpace} {
+    ::gi::declareAllStructTypes     $giSpace
+    ::gi::declareAllClasses         $giSpace
+}
+
 proc ::gi::declareAllClasses {giSpace} {
+    ::gi::forInfos  $giSpace  object  {
+        ::gi::declareClass  $giSpace  $name  {}  {}
+    }
+}
+
+proc ::gi::declareAllStructTypes {giSpace} {
+    ::gi::forInfos  $giSpace  struct  {
+        ::gi::declareStructType  convert  $giSpace  $name
+    }
+}
+
+proc ::gi::forInfos {giSpace  infoTypeName  script} {
     set nInfos [::gi::g_irepository_get_n_infos  $::gi::repoP  $giSpace]
     loop i 0 $nInfos {
         set infoP  [::gi::g_irepository_get_info  $::gi::repoP  $giSpace  $i]
         set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $infoP]]
-        if {$tn eq {object}} {
-            ::gi::declareClass  $giSpace  [::gi::g_base_info_get_name $infoP]  {}  {}
-        }
+        set name [::gi::g_base_info_get_name $infoP]
+        if {$tn eq $infoTypeName} $script
     }
 }
 
@@ -530,6 +618,14 @@ proc ::gi::descripCase-forcePtr {} { uplevel 1 {
     set passMethod byVal
 }}
 
+proc ::gi::descripCase-enum {} { uplevel 1 {
+    set dlrType ::dlr::simple::enum ;# defined by gi.tcl.
+}}
+
+proc ::gi::descripCase-callback {} { uplevel 1 {
+    set dlrType ::dlr::simple::callback ;# defined by gi.tcl.
+}}
+
 proc ::gi::typeToDescrip {typeInfoP dir parmName} {
     if { ! [exists ::gi::descripCases]} {
         # match actual situation to one row of this dispatch table of different cases.
@@ -541,6 +637,8 @@ proc ::gi::typeToDescrip {typeInfoP dir parmName} {
         # pattern columns:
         #     dir           tagName         passMethod  ifcType         haveDlrType handler
         set ::gi::descripCases {
+            { *             INTERFACE       *           {enum flags}    *           enum               }
+            { *             INTERFACE       byVal       callback        *           callback           }
             { *             *               byVal       *               yes         dlrByVal           }
             { *             *               byPtr       *               yes         dlrByPtr           }
             { *             *               byPtr       *               *           forcePtr           }
@@ -597,7 +695,7 @@ puts "interface: <$ifcType> $ifcName"
     }
     # error if no handler was found.
     if {$foundHandler eq {}} {
-        error "Unsupported configuration for parameter type:  $dir  $tagName  $passMethod  $ifcType"
+        error "Unsupported configuration for data type:  $dir  $tagName  $passMethod  $ifcType"
     }
 
     # ### compose description per the chosen handler.

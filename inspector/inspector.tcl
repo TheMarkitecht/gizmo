@@ -115,6 +115,10 @@ proc rootInfos {} {
     return $ptrs
 }
 
+proc dump-struct {label  indent  infoP} {
+    out "${indent}size: [::gi::g_struct_info_get_size $infoP]"
+}
+
 proc dump-function {label  indent  infoP} {
     out "${indent}C-symbol: [::gi::g_function_info_get_symbol $infoP]"
     dump-callable  $label  $indent  $infoP

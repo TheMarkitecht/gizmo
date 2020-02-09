@@ -65,9 +65,10 @@ set ::appDir [file join [pwd] [file dirname [info script]]]
 # test a gio class.
 ::gi::loadSpace  $::metaAction  Gio  2.0  libgio-2.0.so
 # puts [join [lsort [info commands ::gio::*]] \n]
-set complr [gio.FilenameCompleter new]
-puts class=[$complr classname]
-puts methods=[$complr methods]
+::gi::declareAllInfos  Gio  ;#todo: move to gio.tcl.
+set pleter [gio.FilenameCompleter new]
+puts class=[$pleter classname]
+puts methods=[$pleter methods]
 #todo: call a method
 
 exit 0
