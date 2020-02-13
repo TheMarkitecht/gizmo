@@ -5,6 +5,9 @@ alias  ::g::free   dlr::native::giFreeHeap
 
 ::gi::typedef  ptr  GType
 
+# this is required prior to declaring any whole space.
+::gi::declareStructType  convert  GLib  Array
+
 set disabled {
     ::dlr::declareStructType  convert  GLib  GError  {
         {GQuark     domain      asInt}

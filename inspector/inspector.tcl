@@ -36,7 +36,7 @@ proc dget {dicV args} {
 }
 
 proc out {txt} {
-    puts [format {%4d %s} $::lineNum $txt]
+    puts [format {%4d: %s} $::lineNum $txt]
     incr ::lineNum
 }
 
@@ -117,6 +117,18 @@ proc rootInfos {} {
 
 proc dump-struct {label  indent  infoP} {
     out "${indent}size: [::gi::g_struct_info_get_size $infoP]"
+    set nMems [::gi::g_struct_info_get_n_fields $infoP]
+    loop i 0 $nMems {
+        set mInfoP [::gi::g_struct_info_get_field $infoP $i]
+        out "${indent}member: [::gi::g_base_info_get_name $mInfoP]"
+        out "${indent}    offset: [::gi::g_field_info_get_offset $mInfoP]"
+        # size is not useful.  it's implied by the member's type.
+        # that's probably why g_field_info_get_size always returns 0 ?
+        #out "${indent}    size:   [::gi::g_field_info_get_size $mInfoP]"
+        dumpTypeInfoUnref  type  "$indent    "  [::gi::g_field_info_get_type $mInfoP]
+        ::gi::g_base_info_unref $mInfoP
+    }
+    ::gi::g_base_info_unref $infoP
 }
 
 proc dump-function {label  indent  infoP} {
@@ -178,8 +190,22 @@ proc dump-object {label  indent  infoP} {
 # except GITypeInfo.  see dumpTypeInfo.
 proc dumpInfo {label  indent  infoP} {
     if {$label ne {}} {append label { : }}
+
+    # basic identification:  info struct's subtype, name, and namespace.
     set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $infoP]]
-    out "$indent${label}<${tn}> : [::gi::g_base_info_get_name $infoP]"
+    set infoName [::gi::g_base_info_get_name $infoP]
+    out "$indent${label}<${tn}> : ([::gi::g_base_info_get_namespace $infoP]) $infoName"
+
+    # lineage of all containers.
+    set lineage $infoName
+    set walkP $infoP
+    while {[set ctnrP [::gi::g_base_info_get_container $walkP]] > 0} {
+        set lineage "[::gi::g_base_info_get_name $ctnrP] / $lineage"
+        set walkP $ctnrP
+    }
+    if {$walkP != $infoP} {
+        out "$indent    lineage: $lineage"
+    }
 
     # arbitrary string attributes.  evidently uncommon.
     set name {}
@@ -246,7 +272,7 @@ proc dumpTypeInfo {label  indent  typeInfoP} {
         set ifcP  [::gi::g_type_info_get_interface $typeInfoP]
         set ifcType [::gi::g_info_type_to_string [::gi::g_base_info_get_type $ifcP]]
         set ifcName [::gi::g_base_info_get_name $ifcP]
-        out "$indent    <${ifcType}> : $ifcName"
+        out "$indent    <${ifcType}> : ([::gi::g_base_info_get_namespace $ifcP]) $ifcName"
         ::gi::g_base_info_unref $ifcP
     }
 
@@ -255,8 +281,8 @@ proc dumpTypeInfo {label  indent  typeInfoP} {
 }
 
 # command line.
-lassign $::argv  ::metaAction  ::giSpace  ::giSpaceVersion  ::soPath  namePattern
-if {$namePattern eq {}} {set namePattern * }
+lassign $::argv  ::metaAction  ::requireSpaces  ::inspectSpaces  ::namePattern
+if {$::namePattern eq {}} {set ::namePattern * }
 
 # required packages.
 package require dlr
@@ -274,14 +300,21 @@ alias  ::get  set ;# allows "get" as an alternative to the one-argument "set", w
 set ::lineNum 1
 set ::tot [dict create]
 
-# dump all available infos
-loadSpace  $::giSpace  $::giSpaceVersion  $::soPath
-set roots [rootInfos]
-out "[llength $roots] total root infos"
-foreach infoP $roots {
-    set name [::gi::g_base_info_get_name $infoP]
-    if {[string match -nocase $namePattern $name]} {
-        dumpInfo  {}  {}  $infoP
+# load the given prerequisite GI spaces.
+foreach {giSpace  version  soPath} [string trim $::requireSpaces] {
+    ::gi::loadSpace  $::metaAction  $giSpace  $version  $soPath
+}
+
+# load and dump all available infos in the given inspectSpaces.
+foreach {giSpace  version  soPath} [string trim $::inspectSpaces] {
+    loadSpace  $giSpace  $version  $soPath
+    set roots [rootInfos]
+    out "[llength $roots] total root infos"
+    foreach infoP $roots {
+        set name [::gi::g_base_info_get_name $infoP]
+        if {[string match -nocase $::namePattern $name]} {
+            dumpInfo  {}  {}  $infoP
+        }
     }
 }
 

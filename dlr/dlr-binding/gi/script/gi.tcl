@@ -196,6 +196,14 @@ alias  ::gi::free   dlr::native::giFreeHeap
     {in     byVal   gint                    index           asInt}
 }
 
+::dlr::declareCallToNative  cmd  gi  {byPtr ascii asString ignore}  g_base_info_get_namespace  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_base_info_get_container  {
+    {in     byVal   ptr                     info      asInt}
+}
+
 ::dlr::declareCallToNative  cmd  gi  {byVal GIInfoType asInt}  g_base_info_get_type  {
     {in     byVal   ptr                     info      asInt}
 }
@@ -343,6 +351,10 @@ alias  ::gi::free   dlr::native::giFreeHeap
 #todo: more docs
 proc ::gi::loadSpace {metaAction  giSpace  giSpaceVersion  fileNamePath} {
     set libAlias [giSpaceToLibAlias $giSpace]
+    if {[exists ::gi::${libAlias}::version]} {
+        # already loaded.
+        return [get ::gi::${libAlias}::tlbHandle]
+    }
     set errP 0
     set tlbP [::gi::g_irepository_require  $::gi::repoP  $giSpace  $giSpaceVersion  0  errP]
     # can't use ::g::checkGError here; it's not loaded yet.
@@ -401,6 +413,7 @@ proc ::gi::declareStructType {scriptAction  giSpace  structTypeName} {
     ::gi::requireSpace $giSpace
     set libAlias [giSpaceToLibAlias $giSpace]
     set sQal ::dlr::lib::${libAlias}::struct::${structTypeName}::
+puts "declareStructType $sQal"
 
     # find structure info
     set sInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  $giSpace  $structTypeName]
@@ -415,35 +428,69 @@ proc ::gi::declareStructType {scriptAction  giSpace  structTypeName} {
 
     # iterate member info's
     set ${sQal}memberOrder [list]
+    set typeMeta [list]
     set nMems [::gi::g_struct_info_get_n_fields $sInfoP]
     loop i 0 $nMems {
         set mInfoP [::gi::g_struct_info_get_field $sInfoP $i]
         set mName [::gi::g_base_info_get_name $mInfoP]
-        lappend ${sQal}memberOrder  $mName
-        set mQal ${sQal}member::${mName}::
-
-        lassign [::gi::typeToDescrip  [::gi::g_field_info_get_type $mInfoP]  inOut  $mName]  \
+        set mTypeInfoP [::gi::g_field_info_get_type $mInfoP]
+        lassign [::gi::typeToDescrip  $mTypeInfoP  inOut  $mName]  \
             dir  passMethod  dlrType  parmName  scriptForm  memAction
+        set mQal ${sQal}member::${mName}::
+        set ${mQal}type $dlrType
+        set ${mQal}scriptForm $scriptForm
         set mPassType $( $passMethod eq {byVal}  ?  $dlrType  :  {::dlr::simple::ptr} )
-        lappend typeMeta [::dlr::selectTypeMeta $mPassType]
-
         set ${mQal}offset [::gi::g_field_info_get_offset $mInfoP]
+        if {[::dlr::isStructType $mPassType]} {
+            # nested struct's members are stacked into sQal memberOrder as if they belong there.
+            # for FFI and converter purposes, they do belong there.
+            ::gi::includeStructMembers  $sQal  $mName  [get ${mQal}offset]  typeMeta  $mPassType
+        } else {
+            lappend ${sQal}memberOrder  $mName
+            set ${mQal}typeMeta [::dlr::selectTypeMeta $mPassType]
+            lappend typeMeta [get ${mQal}typeMeta]
+        }
+        ::gi::g_base_info_unref $mTypeInfoP
         ::gi::g_base_info_unref $mInfoP
     }
     ::gi::g_base_info_unref $sInfoP
 
     # prep FFI type record for this structure.
+puts typeMeta=$typeMeta
     ::dlr::prepStructType  ${sQal}meta  $typeMeta
 
     # generate and apply converter scripts.
-    if {[refreshMeta] || ! [file readable [structConverterPath $libAlias $structTypeName]]} {
-        generateStructConverters  $libAlias  $structTypeName
+    if {[::dlr::refreshMeta] || ! [file readable [structConverterPath $libAlias $structTypeName]]} {
+        ::dlr::generateStructConverters  $libAlias  $structTypeName
     }
     if {$scriptAction ni {noScript convert}} {
         error "Invalid script action: $scriptAction"
     }
     if {$scriptAction eq {convert}} {
-        source [structConverterPath  $libAlias  $structTypeName]
+        source [::dlr::structConverterPath  $libAlias  $structTypeName]
+    }
+}
+
+# gather up the metadata of each member described by guestTypeName into hostSQal and &hostTypeMetaList.
+# if any of guest's members are themselves structs by value, their members should have already been
+# rolled into guest's memberOrder.
+proc ::gi::includeStructMembers {hostSQal  hostMemberName  hostMOffset  &hostTypeMetaList  guestTypeName} {
+    set gsQal ${guestTypeName}::
+    if { ! [exists ${gsQal}memberOrder]} {
+        error "'$guestTypeName' must be declared before '$hostSQal'.  Has its GI namespace already been loaded?"
+    }
+    foreach gmName [get ${gsQal}memberOrder] {
+        set gmQal ${gsQal}member::${gmName}::
+        set nestedMNameFull ${hostMemberName}::member::${gmName}
+        set nmQal ${hostSQal}member::${nestedMNameFull}::
+
+        set ${nmQal}offset  $( [get ${gmQal}offset] + $hostMOffset )
+        set ${nmQal}type       [get ${gmQal}type]
+        set ${nmQal}typeMeta   [get ${gmQal}typeMeta]
+        set ${nmQal}scriptForm [get ${gmQal}scriptForm]
+
+        lappend hostTypeMetaList [get ${gmQal}typeMeta]
+        lappend ${hostSQal}memberOrder  $nestedMNameFull
     }
 }
 
@@ -478,18 +525,18 @@ proc ::gi::declareAllInfos {giSpace} {
 }
 
 proc ::gi::declareAllClasses {giSpace} {
-    ::gi::forInfos  $giSpace  object  {
+    ::gi::forRootInfos  $giSpace  object  {
         ::gi::declareClass  $giSpace  $name  {}  {}
     }
 }
 
 proc ::gi::declareAllStructTypes {giSpace} {
-    ::gi::forInfos  $giSpace  struct  {
+    ::gi::forRootInfos  $giSpace  struct  {
         ::gi::declareStructType  convert  $giSpace  $name
     }
 }
 
-proc ::gi::forInfos {giSpace  infoTypeName  script} {
+proc ::gi::forRootInfos {giSpace  infoTypeName  script} {
     set nInfos [::gi::g_irepository_get_n_infos  $::gi::repoP  $giSpace]
     loop i 0 $nInfos {
         set infoP  [::gi::g_irepository_get_info  $::gi::repoP  $giSpace  $i]
@@ -626,6 +673,21 @@ proc ::gi::descripCase-callback {} { uplevel 1 {
     set dlrType ::dlr::simple::callback ;# defined by gi.tcl.
 }}
 
+proc ::gi::descripCase-arrayByVal {} { uplevel 1 {
+    set dlrType ::dlr::lib::g::struct::Array ;# defined by g.tcl which must be loadSpace'd first.
+}}
+
+proc ::gi::descripCase-structByVal {} { uplevel 1 {
+puts **ifcP=[format $::dlr::ptrFmt $ifcP]
+puts ifcType=$ifcType
+puts ifcName=$ifcName
+flush stdout
+puts structbyval=[::gi::g_base_info_get_namespace $ifcP]=[::gi::g_base_info_get_name $ifcP]
+
+    set libAlias [giSpaceToLibAlias [::gi::g_base_info_get_namespace $ifcP]]
+    set dlrType ::dlr::lib::${libAlias}::struct::$ifcName
+}}
+
 proc ::gi::typeToDescrip {typeInfoP dir parmName} {
     if { ! [exists ::gi::descripCases]} {
         # match actual situation to one row of this dispatch table of different cases.
@@ -639,6 +701,8 @@ proc ::gi::typeToDescrip {typeInfoP dir parmName} {
         set ::gi::descripCases {
             { *             INTERFACE       *           {enum flags}    *           enum               }
             { *             INTERFACE       byVal       callback        *           callback           }
+            { *             INTERFACE       byVal       struct          *           structByVal        }
+            { *             ARRAY           byVal       *               *           arrayByVal         }
             { *             *               byVal       *               yes         dlrByVal           }
             { *             *               byPtr       *               yes         dlrByPtr           }
             { *             *               byPtr       *               *           forcePtr           }
@@ -673,7 +737,6 @@ proc ::gi::typeToDescrip {typeInfoP dir parmName} {
         set ifcP  [::gi::g_type_info_get_interface $typeInfoP]
         set ifcType [::gi::g_info_type_to_string [::gi::g_base_info_get_type $ifcP]]
         set ifcName [::gi::g_base_info_get_name $ifcP]
-        ::gi::g_base_info_unref $ifcP
 puts "interface: <$ifcType> $ifcName"
     }
 
@@ -702,7 +765,8 @@ puts "interface: <$ifcType> $ifcName"
     set memAction  ignore
     #todo: set memAction per the ownership transfer type.
     ::gi::descripCase-$foundHandler
-    set scriptForm  [lindex [get ${dlrType}::scriptForms] 0]
+    set scriptForm  [lindex [::dlr::validScriptForms $dlrType] 0]
+    #todo: unref's and cleanup.
     return  [list  $dir  $passMethod  $dlrType  $parmName  $scriptForm  $memAction]
 }
 

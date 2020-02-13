@@ -61,9 +61,14 @@ set ::appDir [file join [pwd] [file dirname [info script]]]
 #::g::assertion_message  one  two  3  four  five
 #puts call-Done
 
+# load GI namespaces required for this app.
+::gi::loadSpace  $::metaAction  GLib  2.0  libglib-2.0.so
+::gi::declareAllInfos  GLib  ;#todo: move to g.tcl.
+::gi::loadSpace  $::metaAction  GObject  2.0  libgobject-2.0.so
+::gi::declareAllInfos  GObject  ;#todo: move to gobject.tcl.
 
 # test a gio class.
-::gi::loadSpace  $::metaAction  Gio  2.0  libgio-2.0.so
+::gi::loadSpace  $::metaAction  Gio   2.0  libgio-2.0.so
 # puts [join [lsort [info commands ::gio::*]] \n]
 ::gi::declareAllInfos  Gio  ;#todo: move to gio.tcl.
 set pleter [gio.FilenameCompleter new]
