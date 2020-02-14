@@ -131,6 +131,26 @@ proc dump-struct {label  indent  infoP} {
     ::gi::g_base_info_unref $infoP
 }
 
+proc dump-union {label  indent  infoP} {
+    out "${indent}size: [::gi::g_union_info_get_size $infoP]"
+    set isDiscrim [::gi::g_union_info_is_discriminated $infoP]
+    if {$isDiscrim} {
+        dumpTypeInfoUnref  discriminator  $indent  [::gi::g_union_info_get_discriminator_type $infoP]
+    }
+    set nMems [::gi::g_union_info_get_n_fields $infoP]
+    loop i 0 $nMems {
+        set mInfoP [::gi::g_union_info_get_field $infoP $i]
+        out "${indent}field: [::gi::g_base_info_get_name $mInfoP]"
+        if {$isDiscrim} {
+            set dcInfoP [::gi::g_union_info_get_discriminator $mInfoP $i]
+            out "${indent}    discrim value: [::gi::getConstantValue $dcInfoP]"
+        }
+        dumpTypeInfoUnref  field  "$indent    "  [::gi::g_field_info_get_type $mInfoP]
+        ::gi::g_base_info_unref $mInfoP
+    }
+    ::gi::g_base_info_unref $infoP
+}
+
 proc dump-function {label  indent  infoP} {
     out "${indent}C-symbol: [::gi::g_function_info_get_symbol $infoP]"
     dump-callable  $label  $indent  $infoP

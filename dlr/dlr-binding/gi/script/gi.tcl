@@ -344,6 +344,40 @@ alias  ::gi::free   dlr::native::giFreeHeap
 }
 # do unref
 
+::dlr::declareCallToNative  cmd  gi  {byVal gsize asInt}  g_union_info_get_size  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_union_info_get_n_fields  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_union_info_get_field  {
+    {in     byVal   ptr                     info      asInt}
+    {in     byVal   gint                    n         asInt}
+}
+# do unref
+
+::dlr::declareCallToNative  cmd  gi  {byVal gboolean asInt}  g_union_info_is_discriminated  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_union_info_get_discriminator_offset  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_union_info_get_discriminator_type  {
+    {in     byVal   ptr                     info      asInt}
+}
+# do unref
+
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_union_info_get_discriminator  {
+    {in     byVal   ptr                     info      asInt}
+    {in     byVal   gint                    n         asInt}
+}
+# do unref
+
+
 
 # #################  add-on dlr features supporting GI  ############################
 
@@ -441,7 +475,7 @@ puts "declareStructType $sQal"
         set ${mQal}scriptForm $scriptForm
         set mPassType $( $passMethod eq {byVal}  ?  $dlrType  :  {::dlr::simple::ptr} )
         set ${mQal}offset [::gi::g_field_info_get_offset $mInfoP]
-        if {[::dlr::isStructType $mPassType]} {
+        if {{struct} in [get ${mPassType}::categories]} {
             # nested struct's members are stacked into sQal memberOrder as if they belong there.
             # for FFI and converter purposes, they do belong there.
             ::gi::includeStructMembers  $sQal  $mName  [get ${mQal}offset]  typeMeta  $mPassType
@@ -492,6 +526,63 @@ proc ::gi::includeStructMembers {hostSQal  hostMemberName  hostMOffset  &hostTyp
         lappend hostTypeMetaList [get ${gmQal}typeMeta]
         lappend ${hostSQal}memberOrder  $nestedMNameFull
     }
+}
+
+# this is the required first step before using a union type.
+# unions are treated essentially as structs which can't be automatically converted,
+# because applying the wrong conversion might throw an error, or produce
+# credible but erroneous data.  instead the app must decide which converter
+# to use in each situation, based on the union's discriminator value, if
+# there is one, or on some broader context of the app.
+# so, unions offer only one scriptForm, asNative.
+proc ::gi::declareUnionType {scriptAction  giSpace  unionTypeName} {
+    ::gi::requireSpace $giSpace
+    set libAlias [giSpaceToLibAlias $giSpace]
+    set sQal ::dlr::lib::${libAlias}::struct::${structTypeName}::
+puts "declareStructType $sQal"
+
+    # find union info
+    set sInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  $giSpace  $structTypeName]
+    if {$sInfoP == 0} {
+        error "Type not found in '$giSpace': $structTypeName"
+    }
+    set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $sInfoP]]
+    if {$tn != {struct}} {
+        error "Expected struct type for '$structTypeName' but found '$tn' type instead."
+    }
+    set ${sQal}size  [::gi::g_struct_info_get_size $sInfoP]
+
+    # prep FFI type record for this union.
+puts typeMeta=$typeMeta
+    ::dlr::prepStructType  ${sQal}meta  $typeMeta
+
+    # generate and apply converter scripts.
+    if {[::dlr::refreshMeta] || ! [file readable [structConverterPath $libAlias $unionTypeName]]} {
+        ::dlr::generateUnionConverters  $libAlias  $unionTypeName
+    }
+    if {$scriptAction ni {noScript convert}} {
+        error "Invalid script action: $scriptAction"
+    }
+    if {$scriptAction eq {convert}} {
+        source [::dlr::structConverterPath  $libAlias  $unionTypeName]
+    }
+}
+
+proc ::gi::getConstantValue {constInfoP} {
+    # determine data type, and map it to a dlr type.
+    set typeInfoP [::gi::g_constant_info_get_type $constInfoP]
+    lassign [::gi::typeToDescrip  $typeInfoP  inOut  _#_const_#_ ]  \
+        dlrDir  passMethod  dlrType  dlrName  scriptForm  memAction
+    ::gi::g_base_info_unref  $typeInfoP
+    if {{integral} ni [get ${dlrType}::categories]} {
+        error "Constant is not of an integral type: [::gi::g_base_info_get_name $constInfoP]"
+    }
+
+    # fetch value.
+    ::dlr::createBufferVar  value  $::dlr::simple::GIArgument::size]
+    set sz [::gi::g_constant_info_get_value  $constInfoP  [::dlr::addrOf  value]]
+    set unpacker  [::dlr::converterName  unpack  $dlrType  byVal  $scriptForm  ignore]
+    return [$unpacker $value]
 }
 
 # base class for all script classes representing GNOME calls and data.
@@ -575,7 +666,6 @@ puts class=$fullCls
 puts method=$mName
 
         # declare a native call.
-        #todo: remove from dlrNative the special support for GNOME.  turns out it's not needed.
         set parmsDescrip [list]
         set nArgs [::gi::g_callable_info_get_n_args $mInfoP]
         loop i 0 $nArgs {
@@ -615,7 +705,7 @@ puts arg=$i
             append body "\n    return \[ $fullCls _new \[ list giSelf \$objP giSpace $giSpace \] \] \n"
             proc  "$fullCls new"  $mFormalParms  $body
         } else {
-            set body "\n    ::dlr::lib::${libAlias}::$fnName  $dlrCallParms \n"
+            set body "\n    ::dlr::lib::${libAlias}::${fnName}::call  $dlrCallParms \n"
             $fullCls  method  $mName  $mFormalParms  $body
         }
     }
