@@ -448,6 +448,8 @@ proc ::gi::declareStructType {scriptAction  giSpace  structTypeName} {
     set libAlias [giSpaceToLibAlias $giSpace]
     set sQal ::dlr::lib::${libAlias}::struct::${structTypeName}::
 puts "declareStructType $sQal"
+    set ${sQal}categories   $::dlr::struct::categories
+    set ${sQal}scriptForms  $::dlr::struct::scriptForms
 
     # find structure info
     set sInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  $giSpace  $structTypeName]
@@ -468,8 +470,9 @@ puts "declareStructType $sQal"
         set mInfoP [::gi::g_struct_info_get_field $sInfoP $i]
         set mName [::gi::g_base_info_get_name $mInfoP]
         set mTypeInfoP [::gi::g_field_info_get_type $mInfoP]
-        lassign [::gi::typeToDescrip  $mTypeInfoP  inOut  $mName]  \
+        lassign [::gi::typeToDescrip  $mTypeInfoP  struct  $mName]  \
             dir  passMethod  dlrType  parmName  scriptForm  memAction
+if {$dlrType eq {}} {error "$dir  $passMethod  $dlrType  $parmName  $scriptForm  $memAction  $sQal"}
         set mQal ${sQal}member::${mName}::
         set ${mQal}type $dlrType
         set ${mQal}scriptForm $scriptForm
@@ -538,26 +541,29 @@ proc ::gi::includeStructMembers {hostSQal  hostMemberName  hostMOffset  &hostTyp
 proc ::gi::declareUnionType {scriptAction  giSpace  unionTypeName} {
     ::gi::requireSpace $giSpace
     set libAlias [giSpaceToLibAlias $giSpace]
-    set sQal ::dlr::lib::${libAlias}::struct::${structTypeName}::
-puts "declareStructType $sQal"
+    set sQal ::dlr::lib::${libAlias}::union::${unionTypeName}::
+puts "declareUnionType $sQal"
+    set ${sQal}categories   $::dlr::union::categories
+    set ${sQal}scriptForms  $::dlr::union::scriptForms
 
     # find union info
-    set sInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  $giSpace  $structTypeName]
+    set sInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  $giSpace  $unionTypeName]
     if {$sInfoP == 0} {
-        error "Type not found in '$giSpace': $structTypeName"
+        error "Type not found in '$giSpace': $unionTypeName"
     }
     set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $sInfoP]]
-    if {$tn != {struct}} {
-        error "Expected struct type for '$structTypeName' but found '$tn' type instead."
+    if {$tn != {union}} {
+        error "Expected union type for '$unionTypeName' but found '$tn' type instead."
     }
-    set ${sQal}size  [::gi::g_struct_info_get_size $sInfoP]
+    set ${sQal}size  [::gi::g_union_info_get_size $sInfoP]
 
     # prep FFI type record for this union.
+#todo: select largest union field and largest alignment.  or skip that since unions by value aren't allowed.
 puts typeMeta=$typeMeta
-    ::dlr::prepStructType  ${sQal}meta  $typeMeta
+#    ::dlr::prepunionType  ${sQal}meta  $typeMeta
 
     # generate and apply converter scripts.
-    if {[::dlr::refreshMeta] || ! [file readable [structConverterPath $libAlias $unionTypeName]]} {
+    if {[::dlr::refreshMeta] || ! [file readable [unionConverterPath $libAlias $unionTypeName]]} {
         ::dlr::generateUnionConverters  $libAlias  $unionTypeName
     }
     if {$scriptAction ni {noScript convert}} {
@@ -571,7 +577,7 @@ puts typeMeta=$typeMeta
 proc ::gi::getConstantValue {constInfoP} {
     # determine data type, and map it to a dlr type.
     set typeInfoP [::gi::g_constant_info_get_type $constInfoP]
-    lassign [::gi::typeToDescrip  $typeInfoP  inOut  _#_const_#_ ]  \
+    lassign [::gi::typeToDescrip  $typeInfoP  const  _#_const_#_ ]  \
         dlrDir  passMethod  dlrType  dlrName  scriptForm  memAction
     ::gi::g_base_info_unref  $typeInfoP
     if {{integral} ni [get ${dlrType}::categories]} {
@@ -610,6 +616,10 @@ proc ::gi::declareClass {giSpace  scriptClassNameBare  baseClassList  instanceVa
     ::gi::declareMethods  $giSpace  $scriptClassNameBare
 }
 
+#todo: refactor this family of procs.  must be able to defer declaration of any info until later,
+# because there's widespread interdependence across info types, and mutual dependence.  e.g. some
+# structs contain unions, and many unions are made of structs.  or, a constant could be a pointer
+# to a function, whose parm is a struct containing an array, whose length is a constant.
 proc ::gi::declareAllInfos {giSpace} {
     ::gi::declareAllStructTypes     $giSpace
     ::gi::declareAllClasses         $giSpace
@@ -667,46 +677,54 @@ puts method=$mName
 
         # declare a native call.
         set parmsDescrip [list]
+        set supportedCall 1
         set nArgs [::gi::g_callable_info_get_n_args $mInfoP]
         loop i 0 $nArgs {
 puts arg=$i
-            lappend parmsDescrip [::gi::argToDescrip [::gi::g_callable_info_get_arg $mInfoP $i] $scriptClassNameBare]
+            set descrip [::gi::argToDescrip [::gi::g_callable_info_get_arg $mInfoP $i] $scriptClassNameBare]
+            lappend parmsDescrip $descrip
+            lassign $descrip  dir  passMethod  type  name  scriptForm  memAction
+            if {$type eq {}} {set unsupportedCall 0}
         }
-        ::dlr::declareCallToNative  wrap  $libAlias  \
-            [::gi::returnToDescrip $mInfoP]  $fnName  $parmsDescrip
+        set descrip [::gi::returnToDescrip $mInfoP]
+        lassign $descrip  dir  passMethod  type  name  scriptForm  memAction
+        if {$type eq {}} {set unsupportedCall 0}
+        ::dlr::declareCallToNative  wrap  $libAlias  $descrip  $fnName  $parmsDescrip
 
+        if {$supportedCall} {
 #todo: factor out to a distinct generator routine.  tie into refreshMeta.
-        # wrap that native call in a script class method.
-        # each parameter will be thunked verbatim, except 'self'.
-        set mFormalParms [list]
-        set dlrCallParms [list]
-        foreach pDesc $parmsDescrip {
-            lassign $pDesc  dir  passMethod  type  name  scriptForm  memAction
-            if {$name eq {self}} {
-                lappend dlrCallParms \$giSelf
-            } else {
-                if {$passMethod eq {byVal}} {
-                    lappend mFormalParms $name
-                    lappend dlrCallParms \$$name
+            # wrap that native call in a script class method.
+            # each parameter will be thunked verbatim, except 'self'.
+            set mFormalParms [list]
+            set dlrCallParms [list]
+            foreach pDesc $parmsDescrip {
+                lassign $pDesc  dir  passMethod  type  name  scriptForm  memAction
+                if {$name eq {self}} {
+                    lappend dlrCallParms \$giSelf
                 } else {
-                    lappend mFormalParms &$name
-                    lappend dlrCallParms $name
+                    if {$passMethod eq {byVal}} {
+                        lappend mFormalParms $name
+                        lappend dlrCallParms \$$name
+                    } else {
+                        lappend mFormalParms &$name
+                        lappend dlrCallParms $name
+                    }
                 }
             }
-        }
-        if {$mName eq {new}} {
-            # special case wraps a constructor.  many of these constructors accept parameters.
-            # in Jim it must be implemented as a factory in a class method.
-            # it's called 'new', to match GNOME's convention.
-            # first, Jim's own 'new' command is renamed out of the way.
-            rename "$fullCls new" "$fullCls _new"
-            set body "\n    set  objP  \[ ::dlr::lib::${libAlias}::${fnName}::call  $dlrCallParms \] \n"
-            append body "\n    if { \$objP == 0 } { error \"Object constructor failed: $fnName\" } \n"
-            append body "\n    return \[ $fullCls _new \[ list giSelf \$objP giSpace $giSpace \] \] \n"
-            proc  "$fullCls new"  $mFormalParms  $body
-        } else {
-            set body "\n    ::dlr::lib::${libAlias}::${fnName}::call  $dlrCallParms \n"
-            $fullCls  method  $mName  $mFormalParms  $body
+            if {$mName eq {new}} {
+                # special case wraps a constructor.  many of these constructors accept parameters.
+                # in Jim it must be implemented as a factory in a class method.
+                # it's called 'new', to match GNOME's convention.
+                # first, Jim's own 'new' command is renamed out of the way.
+                rename "$fullCls new" "$fullCls _new"
+                set body "\n    set  objP  \[ ::dlr::lib::${libAlias}::${fnName}::call  $dlrCallParms \] \n"
+                append body "\n    if { \$objP == 0 } { error \"Object constructor failed: $fnName\" } \n"
+                append body "\n    return \[ $fullCls _new \[ list giSelf \$objP giSpace $giSpace \] \] \n"
+                proc  "$fullCls new"  $mFormalParms  $body
+            } else {
+                set body "\n    ::dlr::lib::${libAlias}::${fnName}::call  $dlrCallParms \n"
+                $fullCls  method  $mName  $mFormalParms  $body
+            }
         }
     }
 }
@@ -768,14 +786,31 @@ proc ::gi::descripCase-arrayByVal {} { uplevel 1 {
 }}
 
 proc ::gi::descripCase-structByVal {} { uplevel 1 {
-puts **ifcP=[format $::dlr::ptrFmt $ifcP]
+    set libAlias [giSpaceToLibAlias [::gi::g_base_info_get_namespace $ifcP]]
+    set dlrType ::dlr::lib::${libAlias}::struct::$ifcName
+}}
+
+proc ::gi::descripCase-unionByVal {} { uplevel 1 {
+    # prevent passing unions by value.
+    # GNOME does that in at least 6 places, some are in Widget class!
+    # libffi has serious trouble with that:
+    # https://github.com/libffi/libffi/issues/33
+    # https://stackoverflow.com/questions/40354500/how-do-i-create-an-ffi-type-that-represents-a-union
+    # issue is tagged to fix in libffi 4.0 but that's years away from 2020.
+
+    # return empty string to indicate unsupported.
+    set dlrType {}
+}}
+
+proc ::gi::descripCase-unionNested {} { uplevel 1 {
+puts @@ifcP=[format $::dlr::ptrFmt $ifcP]
 puts ifcType=$ifcType
 puts ifcName=$ifcName
 flush stdout
 puts structbyval=[::gi::g_base_info_get_namespace $ifcP]=[::gi::g_base_info_get_name $ifcP]
 
     set libAlias [giSpaceToLibAlias [::gi::g_base_info_get_namespace $ifcP]]
-    set dlrType ::dlr::lib::${libAlias}::struct::$ifcName
+    set dlrType ::dlr::lib::${libAlias}::union::$ifcName
 }}
 
 proc ::gi::typeToDescrip {typeInfoP dir parmName} {
@@ -792,6 +827,8 @@ proc ::gi::typeToDescrip {typeInfoP dir parmName} {
             { *             INTERFACE       *           {enum flags}    *           enum               }
             { *             INTERFACE       byVal       callback        *           callback           }
             { *             INTERFACE       byVal       struct          *           structByVal        }
+            {{in out inOut} INTERFACE       byVal       union           *           unionByVal         }
+            {{struct const} INTERFACE       byVal       union           *           unionNested        }
             { *             ARRAY           byVal       *               *           arrayByVal         }
             { *             *               byVal       *               yes         dlrByVal           }
             { *             *               byPtr       *               yes         dlrByPtr           }
@@ -855,7 +892,11 @@ puts "interface: <$ifcType> $ifcName"
     set memAction  ignore
     #todo: set memAction per the ownership transfer type.
     ::gi::descripCase-$foundHandler
-    set scriptForm  [lindex [::dlr::validScriptForms $dlrType] 0]
+    if {$dlrType eq {}} {
+        set scriptForm {}
+    } else {
+        set scriptForm  [lindex [::dlr::validScriptForms $dlrType] 0]
+    }
     #todo: unref's and cleanup.
     return  [list  $dir  $passMethod  $dlrType  $parmName  $scriptForm  $memAction]
 }
