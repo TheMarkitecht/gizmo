@@ -750,6 +750,7 @@ puts class=$fullCls
     }
     set nMeth [::gi::g_object_info_get_n_methods $oInfoP]
     loop i 0 $nMeth {
+        # detect one method.
         set mInfoP [::gi::g_object_info_get_method $oInfoP $i]
         if {[::gi::g_base_info_is_deprecated $mInfoP]} continue
         set mName  [::gi::g_base_info_get_name $mInfoP]
@@ -759,53 +760,67 @@ puts method=$mName
             #todo: cleanup
             return {}
         }
+        set isCtor $( $mName eq {new} )
 
-        # declare a native call.
+        # detect the parms.
         set parmsDescrip [list]
+        if { ! $isCtor} {
+            # synthesize a parameter for giSelf, since it's not represented in g_callable_info_get_arg().
+            lappend parmsDescrip [list in byVal ptr _self_ asInt ignore]
+        }
         set nArgs [::gi::g_callable_info_get_n_args $mInfoP]
         loop i 0 $nArgs {
-puts arg=$i
             set descrip [::gi::argToDescrip [::gi::g_callable_info_get_arg $mInfoP $i] \
                 $scriptClassNameBare  "$giSpace / $scriptClassNameBare / $mName = $fnName, arg #$i"]
+puts arg=$i=$descrip
             lappend parmsDescrip $descrip
             if {[llength $descrip] < 3} {
                 #todo: cleanup
                 return $descrip ;# type is unusable; return the stated reason.
             }
         }
+        
+        # detect the return value.
         set descrip [::gi::returnToDescrip $mInfoP  \
             "$giSpace / $scriptClassNameBare / $mName = $fnName, return value"]
         if {[llength $descrip] < 3} {
             #todo: cleanup
             return $descrip ;# type is unusable; return the stated reason.
         }
+        
+        # find the native function's address.  this can fail if GI lists the wrong symbol etc.  it has done so.
         try {
             ::dlr::fnAddr  $fnName  $libAlias
         } on error {msg opts} {
             return "C symbol not found: $libAlias / $fnName" ;# type is unusable; return the stated reason.
         }
+
+        # set up the native call in dlr.
         ::dlr::declareCallToNative  wrap  $libAlias  $descrip  $fnName  $parmsDescrip
 
-#todo: factor out to a distinct generator routine.  tie into refreshMeta.
         # wrap that native call in a script class method.
         # each parameter will be thunked verbatim, except 'self'.
+#todo: factor out to a distinct generator routine.  tie into refreshMeta.
         set mFormalParms [list]
         set dlrCallParms [list]
+        set upvars {}
         foreach pDesc $parmsDescrip {
             lassign $pDesc  dir  passMethod  type  name  scriptForm  memAction
-            if {$name eq {self}} {
+            if {$name eq {_self_}} {
                 lappend dlrCallParms \$giSelf
+            } elseif {$dir in {out inOut return}} {
+                # upvar is used to write to "out" and "inOut" parms in the caller's frame.
+                # Jim "reference arguments" would be better, like dlr does.  but those aren't 
+                # supported by Jim object methods.
+                lappend mFormalParms ${name}_var
+                append upvars "\n    upvar 1 ${name}_var $name \n"
+                lappend dlrCallParms $name
             } else {
-                if {$passMethod eq {byVal}} {
-                    lappend mFormalParms $name
-                    lappend dlrCallParms \$$name
-                } else {
-                    lappend mFormalParms &$name
-                    lappend dlrCallParms $name
-                }
+                lappend mFormalParms $name
+                lappend dlrCallParms \$$name
             }
         }
-        if {$mName eq {new}} {
+        if {$isCtor} {
             # special case wraps a constructor.  many of these constructors accept parameters.
             # in Jim it must be implemented as a factory in a class method.
             # it's called 'new', to match GNOME's convention.
@@ -815,13 +830,18 @@ puts arg=$i
             if { ! [exists -command "$fullCls _new"]} {
                 rename "$fullCls new" "$fullCls _new"
             }
-            set body "\n    set  objP  \[ ::dlr::lib::${libAlias}::${fnName}::call  $dlrCallParms \] \n"
+            set body $upvars
+            append body "\n    set  objP  \[ ::dlr::lib::${libAlias}::${fnName}::call  $dlrCallParms \] \n"
             append body "\n    if { \$objP == 0 } { error \"Object constructor failed: $fnName\" } \n"
             append body "\n    return \[ $fullCls _new \[ list giSelf \$objP giSpace $giSpace \] \] \n"
-            proc  "$fullCls new"  $mFormalParms  $body
+            proc  "$fullCls new"  $mFormalParms  [::dlr::collapseBlankLines $body]
         } else {
-            set body "\n    ::dlr::lib::${libAlias}::${fnName}::call  $dlrCallParms \n"
-            $fullCls  method  $mName  $mFormalParms  $body
+            set body $upvars
+            append body "\n    ::dlr::lib::${libAlias}::${fnName}::call  [join $dlrCallParms {  }] \n"
+            $fullCls  method  $mName  $mFormalParms  [::dlr::collapseBlankLines $body]
+if {$mName eq {get_completion_suffix}} {
+    puts  "$fullCls  method  $mName  $mFormalParms  $body"
+}
         }
     }
     return {}
@@ -850,12 +870,6 @@ proc ::gi::argToDescrip {argInfoP  scriptClassNameBare errorContext} {
         return $descrip ;# type is unusable; return the stated reason.
     }
     lassign $descrip  dlrDir  passMethod  dlrType  dlrName  scriptForm  memAction
-
-    if {$passMethod eq {byPtr} && $dlrType eq $scriptClassNameBare} {
-        # assume this is the "self" parm, to pass the object instance pointer to the function.
-        set dlrName self
-    }
-
     return  [list  $dlrDir  $passMethod  $dlrType  $dlrName  $scriptForm  $memAction]
 }
 
