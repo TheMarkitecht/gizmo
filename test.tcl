@@ -67,22 +67,21 @@ set ::appDir [file join [pwd] [file dirname [info script]]]
 ::gi::loadSpace  $::metaAction  GObject  2.0  libgobject-2.0.so
 ::gi::declareAllInfos  GObject  ;#todo: move to gobject.tcl.
 
-# test a gio class:  FilenameCompleter
+# test a class:  gio.Credentials
 ::gi::loadSpace  $::metaAction  Gio   2.0  libgio-2.0.so
 # puts [join [lsort [info commands ::gio::*]] \n]
 set ::gio::ignoreNames [list g_io_module_query] ;#todo: move to gio.tcl.
 ::gi::declareAllInfos  Gio  ;#todo: move to gio.tcl.
-set pleter [gio.FilenameCompleter new]
-puts class=[$pleter classname]
-puts vars=[$pleter vars]
-puts methods=[$pleter methods]
-set prefx [file join $::appDir tes]
-::dlr::native::sizeOfTypes
-puts prefx=$prefx
-set sufx [$pleter  get_completion_suffix  $prefx]
-after 2000
-set sufx [$pleter  get_completion_suffix  $prefx]
-puts sufx=$sufx
-assert {$sufx eq {t.tcl}}
+set creds [gio.Credentials new]
+puts class=[$creds classname]
+puts vars=[$creds vars]
+puts methods=[$creds methods]
+set c [$creds  to_string]
+puts creds=$c
+assert {[regexp -nocase {\<pid=(\d+)\>} $c junk pid]}
+puts pid=$pid
+assert {int($pid) > 1}
+
+#todo: test parameter passing to methods
 
 exit 0
