@@ -21,65 +21,30 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with gizmo.  If not, see <https://www.gnu.org/licenses/>.
 
-
-proc assert {exp} {
-    set truth [uplevel 1 [list expr $exp]]
-    if { ! $truth} {
-        error "ASSERT FAILED: $exp"
-    }
-}
-
-proc bench {label  reps  script} {
-    puts "$label:  reps=$reps"
-    flush stdout
-    set beginMs [clock milliseconds]
-    uplevel 1 loop attempt 0 $reps \{ $script \}
-    set elapseMs $([clock milliseconds] - $beginMs)
-    set eachUs $(double($elapseMs) / double($reps) * 1000.0)
-    puts [format "    time=%0.3fs  each=%0.1fus" $(double($elapseMs) / 1000.0) $eachUs]
-    flush stdout
-}
-
 # required packages.
 puts paths=$::auto_path
 package require gizmo
 
-# script interpreter support.
-alias  ::get  set ;# allows "get" as an alternative to the one-argument "set", with much clearer intent.
-
 # command line.
 #lassign $::argv  ::metaAction  testName
 set ::metaAction refreshMeta
-
-# globals
-set ::appDir [file join [pwd] [file dirname [info script]]]
-
-# test a glib call.
-#todo: reinstate
-#::g::assertion_message  one  two  3  four  five
-#puts call-Done
 
 # load GI namespaces required for this app.
 ::gi::loadSpace  $::metaAction  GLib  2.0  libglib-2.0.so
 ::gi::declareAllInfos  GLib  ;#todo: move to g.tcl.
 ::gi::loadSpace  $::metaAction  GObject  2.0  libgobject-2.0.so
 ::gi::declareAllInfos  GObject  ;#todo: move to gobject.tcl.
-
-# test a class:  gio.Credentials
 ::gi::loadSpace  $::metaAction  Gio   2.0  libgio-2.0.so
-# puts [join [lsort [info commands ::gio::*]] \n]
 set ::gio::ignoreNames [list g_io_module_query] ;#todo: move to gio.tcl.
 ::gi::declareAllInfos  Gio  ;#todo: move to gio.tcl.
-set creds [gio.Credentials new]
-puts class=[$creds classname]
-puts vars=[$creds vars]
-puts methods=[$creds methods]
-set c [$creds  to_string]
-puts creds=$c
-assert {[regexp -nocase {\<pid=(\d+)\>} $c junk pid]}
-puts pid=$pid
-assert {int($pid) > 1}
 
-#todo: test parameter passing to methods
-
-exit 0
+# REPL loop.
+while {1} {
+    puts -nonewline "\n> "
+    set ln [gets stdin]
+    try {
+        puts [eval $ln]
+    } on error {msg opts} {
+        puts "Error: $msg"
+    }
+}
