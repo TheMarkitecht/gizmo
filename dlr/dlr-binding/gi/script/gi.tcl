@@ -676,10 +676,14 @@ class gi.BaseClass {
 # declares the name of a new script class.
 proc ::gi::declareClass {giSpace  scriptClassNameBare  baseClassList  instanceVarsDict} {
     ::gi::requireSpace $giSpace
+    set oInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  $giSpace  $scriptClassNameBare]
+    if {$oInfoP == 0} {
+        error "Type not found in '$giSpace': $scriptClassNameBare"
+    }
     set libAlias [giSpaceToLibAlias $giSpace]
     set fullCls $libAlias.$scriptClassNameBare
     class  $fullCls  [list gi.BaseClass {*}$baseClassList]  $instanceVarsDict
-    return [::gi::declareMethods  $giSpace  $scriptClassNameBare]
+    return [::gi::declareMethodsInfoP  $giSpace  $libAlias  $oInfoP  object  $scriptClassNameBare]
 }
 
 # this routine is able to defer declaration of any info until later, due to dependence,
@@ -694,6 +698,8 @@ proc ::gi::declareAllInfos {giSpace} {
 
     # build a list of all usable top-level GI info's.
     #todo: expand this to more info types.
+interface
+and write declareInfoP-interface
     ::gi::forRootInfos  $giSpace  $libAlias  [list object struct union function]  {
         lappend remain [list  $infoP  $infoTypeName  $infoName]
     }
@@ -850,6 +856,7 @@ proc ::gi::forRootInfos {giSpace  libAlias  infoTypeNames  script} {
 # detects and declares all methods of a class, in bulk.
 # leading double-colons are used ahead of the dotted class name in this routine.
 # however they aren't needed in app script, nor in other ::gi procs.
+#todo: this routine not needed??  it's for manually declared types.
 proc ::gi::declareMethods {giSpace  scriptClassNameBare} {
     set libAlias [giSpaceToLibAlias $giSpace]
     set fullCls ::$libAlias.$scriptClassNameBare
@@ -859,20 +866,24 @@ proc ::gi::declareMethods {giSpace  scriptClassNameBare} {
 puts class=$fullCls
 
     # find all methods from GI info.
-#todo: support GInterface the same as GObject.
     set oInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  $giSpace  $scriptClassNameBare]
     if {$oInfoP == 0} {
         error "Type not found in '$giSpace': $scriptClassNameBare"
     }
-    set tn [::gi::g_info_type_to_string [::gi::g_base_info_get_type $oInfoP]]
-    if {$tn != {object}} {
-        error "Expected object type for '$scriptClassNameBare' but found '$tn' type instead."
+
+    ::gi::declareMethodsInfoP  $giSpace  $libAlias  $oInfoP  object  $scriptClassNameBare
+}
+
+# detects and declares all methods of a type, in bulk.
+proc ::gi::declareMethodsInfoP {giSpace  libAlias  infoP  infoTypeName  infoName} {
+    if {$infoTypeName ni {object struct union interface}} {
+        error "'$infoName' is a '$infoTypeName' which does not support methods."
     }
     set ignores [get ::${libAlias}::ignoreNames]
-    set nMeth [::gi::g_object_info_get_n_methods $oInfoP]
+    set nMeth [::gi::g_${infoTypeName}_info_get_n_methods $oInfoP]
     loop i 0 $nMeth {
         # detect one method.
-        set mInfoP [::gi::g_object_info_get_method $oInfoP $i]
+        set mInfoP [::gi::g_${infoTypeName}_info_get_method $oInfoP $i]
         if {[::gi::g_base_info_is_deprecated $mInfoP]} continue
         set mName  [::gi::g_base_info_get_name $mInfoP]
         set symbol [::gi::g_function_info_get_symbol $mInfoP]
@@ -892,7 +903,7 @@ puts method=$mName
         set nArgs [::gi::g_callable_info_get_n_args $mInfoP]
         loop i 0 $nArgs {
             set descrip [::gi::argToDescrip [::gi::g_callable_info_get_arg $mInfoP $i] \
-                "$giSpace / $scriptClassNameBare / $mName = $symbol, arg #$i"]
+                "$giSpace / $infoName / $mName = $symbol, arg #$i"]
 puts arg=$i=$descrip
             lappend parmsDescrip $descrip
             if {[llength $descrip] < 3} {
@@ -903,7 +914,7 @@ puts arg=$i=$descrip
 
         # detect the return value.
         set descrip [::gi::returnToDescrip $mInfoP  \
-            "$giSpace / $scriptClassNameBare / $mName = $symbol, return value"]
+            "$giSpace / $infoName / $mName = $symbol, return value"]
         if {[llength $descrip] < 3} {
             #todo: cleanup
             return $descrip ;# type is unusable; return the stated reason.
