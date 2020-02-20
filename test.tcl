@@ -61,8 +61,10 @@ set ::appDir [file join [pwd] [file dirname [info script]]]
 
 # load GI namespaces required for this app.
 ::gi::loadSpace  $::metaAction  GLib  2.0  libglib-2.0.so
+set ::g::ignoreNames [list  g_strv_get_type  g_variant_get_gtype] ;#todo: move to g.tcl.
 ::gi::declareAllInfos  GLib  ;#todo: move to g.tcl.
 ::gi::loadSpace  $::metaAction  GObject  2.0  libgobject-2.0.so
+set ::gobject::ignoreNames [list  g_signal_set_va_marshaller] ;#todo: move to gobject.tcl.
 ::gi::declareAllInfos  GObject  ;#todo: move to gobject.tcl.
 
 # test a class:  gio.Credentials

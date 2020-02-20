@@ -23,7 +23,7 @@ set disabled {
     }
 }
 
-::gi::declareCallToNative  cmd  GLib  {void}  assertion_message  {
+::gi::declareFunction  cmd  GLib  {void}  assertion_message  {
     {in     byPtr   ascii   a       asString}
     {in     byPtr   ascii   b       asString}
     {in     byVal   int     line    asInt}

@@ -28,20 +28,21 @@ long_line_behaviour=1
 long_line_column=72
 
 [files]
-current_page=7
+current_page=6
 FILE_NAME_0=8459;C;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fmain.c;0;4
 FILE_NAME_1=1777;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Finitgizmo.tcl;0;4
 FILE_NAME_2=5558;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Finspector%2Finspector.tcl;0;4
 FILE_NAME_3=1071797;None;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Finspector%2Finfos.txt;0;4
 FILE_NAME_4=1899;Sh;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Finspector%2Fbuild;0;4
-FILE_NAME_5=51673;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fdlr%2Fdlr%2Fdlr.tcl;0;4
-FILE_NAME_6=33239;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fdlr%2Fdlr-binding%2Fgi%2Fscript%2Fgi.tcl;0;4
-FILE_NAME_7=2931;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Ftest.tcl;0;4
-FILE_NAME_8=229;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fdlr%2Fdlr-binding%2Fg%2Fscript%2Fg.tcl;0;4
-FILE_NAME_9=561;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fdlr%2Fdlr-binding%2Fgtk%2Fscript%2Fgtk.tcl;0;4
-FILE_NAME_10=2204;Sh;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fbuild;0;4
-FILE_NAME_11=253;None;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Finspector%2F.gdbinit;0;4
-FILE_NAME_12=100;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fdlr%2Fdlr-binding%2Fgio%2Fauto%2Fg_filename_completer_get_completion_suffix.call.tcl;0;4
+FILE_NAME_5=27809;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fdlr%2Fdlr%2Fdlr.tcl;0;4
+FILE_NAME_6=31457;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fdlr%2Fdlr-binding%2Fgi%2Fscript%2Fgi.tcl;0;4
+FILE_NAME_7=1971;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Ftest.tcl;0;4
+FILE_NAME_8=1141;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fshell.tcl;0;4
+FILE_NAME_9=686;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fdlr%2Fdlr-binding%2Fg%2Fscript%2Fg.tcl;0;4
+FILE_NAME_10=561;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fdlr%2Fdlr-binding%2Fgtk%2Fscript%2Fgtk.tcl;0;4
+FILE_NAME_11=2246;Sh;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fbuild;0;4
+FILE_NAME_12=253;None;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Finspector%2F.gdbinit;0;4
+FILE_NAME_13=100;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fgizmo%2Fdlr%2Fdlr-binding%2Fgio%2Fauto%2Fg_filename_completer_get_completion_suffix.call.tcl;0;4
 
 [VTE]
 last_dir=/home

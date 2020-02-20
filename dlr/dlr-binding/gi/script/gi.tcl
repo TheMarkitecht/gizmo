@@ -54,6 +54,8 @@ proc ::gi::popCompiler {} {
 ::dlr::typedef  gint        gboolean
 ::dlr::typedef  ptr         callback
 ::dlr::typedef  uLong       gsize
+::dlr::typedef  u32         gunichar
+::dlr::typedef  u16         gunichar2
 
 # based on GI_TYPE_TAG_*
 ::dlr::declareEnum  gi  gint  GITypeTag  {
@@ -98,6 +100,7 @@ foreach {name typ} {
     GTYPE       ::dlr::simple::ptr
     UTF8        ::dlr::simple::ascii
     FILENAME    ::dlr::simple::ascii
+    UNICHAR     ::dlr::simple::u32
 } {
     dict set  ::gi::GITypeTag::toDlrType  $::gi::GITypeTag::toValue($name)  $typ
 }
@@ -324,6 +327,16 @@ alias  ::gi::free   dlr::native::giFreeHeap
     {in     byVal   ptr                     info      asInt}
 }
 
+::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_struct_info_get_n_methods  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_struct_info_get_method {
+    {in     byVal   ptr                     info      asInt}
+    {in     byVal   gint                    n         asInt}
+}
+# do unref
+
 ::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_struct_info_get_n_fields  {
     {in     byVal   ptr                     info      asInt}
 }
@@ -350,6 +363,16 @@ alias  ::gi::free   dlr::native::giFreeHeap
 ::dlr::declareCallToNative  cmd  gi  {byVal gsize asInt}  g_union_info_get_size  {
     {in     byVal   ptr                     info      asInt}
 }
+
+::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_union_info_get_n_methods  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_union_info_get_method {
+    {in     byVal   ptr                     info      asInt}
+    {in     byVal   gint                    n         asInt}
+}
+# do unref
 
 ::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_union_info_get_n_fields  {
     {in     byVal   ptr                     info      asInt}
@@ -404,6 +427,7 @@ proc ::gi::loadSpace {metaAction  giSpace  giSpaceVersion  fileNamePath} {
     set ::${libAlias}::tlbHandle $tlbP
     set ::${libAlias}::version  $giSpaceVersion
     if { ! [exists ::${libAlias}::ignoreNames]} {
+        # method names or C symbol names that might be found in GI, but shouldn't be used.
         set ::${libAlias}::ignoreNames  [list]
     }
     ::dlr::loadLib  $metaAction  $libAlias  $fileNamePath
@@ -665,19 +689,54 @@ proc ::gi::declareClass {giSpace  scriptClassNameBare  baseClassList  instanceVa
 # to a function, whose parm is a struct containing an array, whose length is a constant.
 proc ::gi::declareAllInfos {giSpace} {
     set libAlias [giSpaceToLibAlias $giSpace]
-    ::gi::forRootInfos  $giSpace  [list object struct union]  {
-        if { ! [::gi::g_base_info_is_deprecated $infoP]} {
-            lappend remain [list  $infoP  $infoTypeName  $infoName]
+    set infosWithMethods [list object struct union]
+    set ignores [get ::${libAlias}::ignoreNames]
+
+    # build a list of all usable top-level GI info's.
+    #todo: expand this to more info types.
+    ::gi::forRootInfos  $giSpace  $libAlias  [list object struct union function]  {
+        lappend remain [list  $infoP  $infoTypeName  $infoName]
+    }
+
+    # find C symbols of all methods used by an object, struct, etc.
+    set methodSymbols [list]
+    foreach tuple $remain {
+        lassign  $tuple  infoP  infoTypeName  name
+        if {$infoTypeName in $infosWithMethods} {
+            lappend methodSymbols {*}[::gi::getMethodSymbols  $infoP  $infoTypeName  $ignores]
         }
     }
+    # eliminate each top-level function info that's actually a method used by an
+    # object, struct, etc..  this prevents duplication due to declaring it two ways.
+    set distinct [list]
+    foreach tuple $remain {
+        lassign  $tuple  infoP  infoTypeName  name
+        if {$infoTypeName eq {function}} {
+            set symbol [::gi::g_function_info_get_symbol $infoP]
+            if {$symbol ni $methodSymbols} {
+                lappend distinct $tuple ;# isn't a method symbol; use it.
+            }
+        } else {
+            lappend distinct $tuple ;# isn't a function at all; use it.
+        }
+    }
+    unset methodSymbols
+    set remain $distinct
+
+    # make repeated passes through the remaining list.  make as many passes as it takes
+    # to satisfy interdependencies.
     for {set passes 1} {[llength $remain] > 0} {incr passes} {
 puts ===========================pass=$giSpace/$passes
 puts remain=[llength $remain]
         set next [list]
         set errors [list]
         foreach tuple $remain {
-            set err [::gi::declareInfoP  $giSpace  $libAlias  {*}$tuple]
+            lassign $tuple  infoP  infoTypeName  infoName
+puts tuple=$tuple
+flush stdout
+            set err [::gi::declareInfoP-$infoTypeName  $giSpace  $libAlias  {*}$tuple]
             if {$err ne {}} {
+#if {[string match {*expected int*} $err]} {debugscript begin}
                 # declaration failed.  queue this info to try again on the next pass.
                 lappend next $tuple
                 lappend errors $err
@@ -697,33 +756,94 @@ puts remain=[llength $remain]
     }
 }
 
-# the other routines called from here accept giSpace rather than libAlias.  that way
-# keeps their syntax minimal when they are called manually in binding scripts.  they can be.
-proc ::gi::declareInfoP {giSpace  libAlias  infoP  infoTypeName  name} {
-    if {$name in [get ::${libAlias}::ignoreNames]} {
+proc ::gi::declareInfoP-object {giSpace  libAlias  infoP  infoTypeName  name} {
+    # the other routines called from here accept giSpace rather than libAlias.  that way
+    # keeps their syntax minimal when they are called manually in binding scripts.  they can be.
+    return [::gi::declareClass  $giSpace  $name  {}  {}]
+    #todo: find base classes first.
+}
+
+proc ::gi::declareInfoP-struct {giSpace  libAlias  infoP  infoTypeName  name} {
+    return [::gi::declareStructType  convert  $giSpace  $name]
+}
+
+proc ::gi::declareInfoP-union {giSpace  libAlias  infoP  infoTypeName  name} {
+    return [::gi::declareUnionType  convert  $giSpace  $name]
+}
+
+proc ::gi::declareInfoP-function {giSpace  libAlias  fInfoP  infoTypeName  fName} {
+    set symbol [::gi::g_function_info_get_symbol $fInfoP]
+    # fName has already been checked at this point, but still need to check symbol.
+    if {$symbol in [get ::${libAlias}::ignoreNames]} {
+        #todo: cleanup
         return {}
     }
-    if {$infoTypeName eq {object}} {
-        #todo: find base classes.
-        return [::gi::declareClass  $giSpace  $name  {}  {}]
-    } elseif {$infoTypeName eq {struct}}  {
-        return [::gi::declareStructType  convert  $giSpace  $name]
-    } elseif {$infoTypeName eq {union}}  {
-        return [::gi::declareUnionType  convert  $giSpace  $name]
+#if {$fName eq {enum_complete_type_info}} {debugscript begin}
+
+    # detect the parms.
+    set parmsDescrip [list]
+    set nArgs [::gi::g_callable_info_get_n_args $fInfoP]
+    loop i 0 $nArgs {
+        set descrip [::gi::argToDescrip [::gi::g_callable_info_get_arg $fInfoP $i] \
+            "$giSpace / $fName = $symbol, arg #$i"]
+        lappend parmsDescrip $descrip
+        if {[llength $descrip] < 3} {
+            #todo: cleanup
+            return $descrip ;# type is unusable; return the stated reason.
+        }
     }
+
+    # detect the return value.
+    set descrip [::gi::returnToDescrip $fInfoP  \
+        "$giSpace / $fName = $symbol, return value"]
+    if {[llength $descrip] < 3} {
+        #todo: cleanup
+        return $descrip ;# type is unusable; return the stated reason.
+    }
+
+    # find the native function's address.  this can fail if GI lists the wrong symbol etc.  it has done so.
+    try {
+        ::dlr::fnAddr  $symbol  $libAlias
+    } on error {msg opts} {
+        return "C symbol not found: $libAlias / $symbol" ;# info is unusable; return the stated reason.
+    }
+
+    # set up the native call in dlr.
+    ::dlr::declareCallToNative  cmd  $libAlias  $descrip  $symbol  $parmsDescrip
+
     return {}
 }
 
-proc ::gi::forRootInfos {giSpace  infoTypeNames  script} {
+proc ::gi::getMethodSymbols {infoP  infoTypeName  ignores} {
+    set syms [list]
+    set nMeth [::gi::g_${infoTypeName}_info_get_n_methods $infoP]
+    loop i 0 $nMeth {
+        set mInfoP [::gi::g_${infoTypeName}_info_get_method $infoP $i]
+        if {[::gi::g_base_info_is_deprecated $mInfoP]} continue
+        set mName  [::gi::g_base_info_get_name $mInfoP]
+        set symbol [::gi::g_function_info_get_symbol $mInfoP]
+        if {$mName ni $ignores && $symbol ni $ignores} {
+            lappend syms $symbol
+        }
+    }
+    return $syms
+}
+
+proc ::gi::forRootInfos {giSpace  libAlias  infoTypeNames  script} {
+    set ignores [get ::${libAlias}::ignoreNames]
     set nInfos [::gi::g_irepository_get_n_infos  $::gi::repoP  $giSpace]
     upvar 1 infoP  infoP
     upvar 1 infoTypeName  infoTypeName
     upvar 1 infoName  infoName
     loop i 0 $nInfos {
         set infoP  [::gi::g_irepository_get_info  $::gi::repoP  $giSpace  $i]
-        set infoTypeName [::gi::g_info_type_to_string [::gi::g_base_info_get_type $infoP]]
-        set infoName [::gi::g_base_info_get_name $infoP]
-        if {$infoTypeName in $infoTypeNames} {uplevel 1 $script}
+        if { ! [::gi::g_base_info_is_deprecated $infoP]} {
+            set infoName [::gi::g_base_info_get_name $infoP]
+            if {$infoName ni $ignores} {
+                set infoTypeName [::gi::g_info_type_to_string [::gi::g_base_info_get_type $infoP]]
+                if {$infoTypeName in $infoTypeNames} {uplevel 1 $script}
+            }
+        }
     }
 }
 
@@ -748,15 +868,16 @@ puts class=$fullCls
     if {$tn != {object}} {
         error "Expected object type for '$scriptClassNameBare' but found '$tn' type instead."
     }
+    set ignores [get ::${libAlias}::ignoreNames]
     set nMeth [::gi::g_object_info_get_n_methods $oInfoP]
     loop i 0 $nMeth {
         # detect one method.
         set mInfoP [::gi::g_object_info_get_method $oInfoP $i]
         if {[::gi::g_base_info_is_deprecated $mInfoP]} continue
         set mName  [::gi::g_base_info_get_name $mInfoP]
-        set fnName [::gi::g_function_info_get_symbol $mInfoP]
+        set symbol [::gi::g_function_info_get_symbol $mInfoP]
 puts method=$mName
-        if {$mName in [get ::${libAlias}::ignoreNames] || $fnName in [get ::${libAlias}::ignoreNames]} {
+        if {$mName in $ignores || $symbol in $ignores} {
             #todo: cleanup
             return {}
         }
@@ -771,7 +892,7 @@ puts method=$mName
         set nArgs [::gi::g_callable_info_get_n_args $mInfoP]
         loop i 0 $nArgs {
             set descrip [::gi::argToDescrip [::gi::g_callable_info_get_arg $mInfoP $i] \
-                $scriptClassNameBare  "$giSpace / $scriptClassNameBare / $mName = $fnName, arg #$i"]
+                "$giSpace / $scriptClassNameBare / $mName = $symbol, arg #$i"]
 puts arg=$i=$descrip
             lappend parmsDescrip $descrip
             if {[llength $descrip] < 3} {
@@ -779,28 +900,29 @@ puts arg=$i=$descrip
                 return $descrip ;# type is unusable; return the stated reason.
             }
         }
-        
+
         # detect the return value.
         set descrip [::gi::returnToDescrip $mInfoP  \
-            "$giSpace / $scriptClassNameBare / $mName = $fnName, return value"]
+            "$giSpace / $scriptClassNameBare / $mName = $symbol, return value"]
         if {[llength $descrip] < 3} {
             #todo: cleanup
             return $descrip ;# type is unusable; return the stated reason.
         }
-        
+
         # find the native function's address.  this can fail if GI lists the wrong symbol etc.  it has done so.
         try {
-            ::dlr::fnAddr  $fnName  $libAlias
+            ::dlr::fnAddr  $symbol  $libAlias
         } on error {msg opts} {
-            return "C symbol not found: $libAlias / $fnName" ;# type is unusable; return the stated reason.
+            return "C symbol not found: $libAlias / $symbol" ;# type is unusable; return the stated reason.
         }
 
         # set up the native call in dlr.
-        ::dlr::declareCallToNative  wrap  $libAlias  $descrip  $fnName  $parmsDescrip
+        ::dlr::declareCallToNative  wrap  $libAlias  $descrip  $symbol  $parmsDescrip
 
         # wrap that native call in a script class method.
         # each parameter will be thunked verbatim, except 'self'.
 #todo: factor out to a distinct generator routine.  tie into refreshMeta.
+#todo: make all generators write to a given file stream.  make that one open file for an entire giSpace.  that reduces I/O load a lot, for faster startup.  consider making dlr do the same.  individual classes can still be sourced selectively by generating them wrapped in 'if' blocks, and then passing in a list of the ones to be used by the app.  test to see if Jim discards the unused script lines or not.  if not, keep the existing filename scheme and stuff them all into a zip file.  use Jim's built in zlib support.
         set mFormalParms [list]
         set dlrCallParms [list]
         set upvars {}
@@ -810,7 +932,7 @@ puts arg=$i=$descrip
                 lappend dlrCallParms \$giSelf
             } elseif {$dir in {out inOut return}} {
                 # upvar is used to write to "out" and "inOut" parms in the caller's frame.
-                # Jim "reference arguments" would be better, like dlr does.  but those aren't 
+                # Jim "reference arguments" would be better, like dlr does.  but those aren't
                 # supported by Jim object methods.
                 lappend mFormalParms ${name}_var
                 append upvars "\n    upvar 1 ${name}_var $name \n"
@@ -831,17 +953,14 @@ puts arg=$i=$descrip
                 rename "$fullCls new" "$fullCls _new"
             }
             set body $upvars
-            append body "\n    set  objP  \[ ::dlr::lib::${libAlias}::${fnName}::call  $dlrCallParms \] \n"
-            append body "\n    if { \$objP == 0 } { error \"Object constructor failed: $fnName\" } \n"
+            append body "\n    set  objP  \[ ::dlr::lib::${libAlias}::${symbol}::call  $dlrCallParms \] \n"
+            append body "\n    if { \$objP == 0 } { error \"Object constructor failed: $symbol\" } \n"
             append body "\n    return \[ $fullCls _new \[ list giSelf \$objP giSpace $giSpace \] \] \n"
             proc  "$fullCls new"  $mFormalParms  [::dlr::collapseBlankLines $body]
         } else {
             set body $upvars
-            append body "\n    ::dlr::lib::${libAlias}::${fnName}::call  [join $dlrCallParms {  }] \n"
+            append body "\n    ::dlr::lib::${libAlias}::${symbol}::call  [join $dlrCallParms {  }] \n"
             $fullCls  method  $mName  $mFormalParms  [::dlr::collapseBlankLines $body]
-if {$mName eq {get_completion_suffix}} {
-    puts  "$fullCls  method  $mName  $mFormalParms  $body"
-}
         }
     }
     return {}
@@ -858,7 +977,7 @@ proc ::gi::returnToDescrip {callableInfoP errorContext} {
     return  [list  $passMethod  $dlrType  $scriptForm  $memAction]
 }
 
-proc ::gi::argToDescrip {argInfoP  scriptClassNameBare errorContext} {
+proc ::gi::argToDescrip {argInfoP  errorContext} {
     set dir [::gi::g_arg_info_get_direction $argInfoP]
     set dlrDir $::gi::GIDirection::toDlrDirection($dir)
     set dlrName  [::gi::g_base_info_get_name $argInfoP]
@@ -1030,15 +1149,14 @@ proc ::gi::typeToDescrip {typeInfoP dir parmName errorContext} {
 # like ::dlr::declareCallToNative, but for GNOME calls instead (those described by GI).
 # parameters and most other metadata are obtained directly from GI and don't
 # have to be declared by script.
-# giSpace shall always be passed to ::gi::declareCallToNative in proper case, such as Gtk.
+# giSpace shall always be passed to ::gi::declareFunction in proper case, such as Gtk.
 # the equivalent libAlias shall always be derived as [string tolower $giSpace], with
 # any "lib" suffix removed from the end.  use giSpaceToLibAlias for that.
 # that's the version that shall always be passed to ::dlr::declareCallToNative.
 # simple types and all metadata reside as usual under ::dlr and ::dlr::lib::.
 # libgirepository functions are aliased into ::gi::$fnName
 # features of the target native library are aliased into ::$libAlias, usually as Jim OO classes.
-#todo: obsolete??
-proc ::gi::declareCallToNative {scriptAction  giSpace  returnTypeDescrip  fnName  parmsDescrip} {
+proc ::gi::declareFunction {scriptAction  giSpace  returnTypeDescrip  fnName  parmsDescrip} {
     ::gi::requireSpace $giSpace
     set libAlias [giSpaceToLibAlias $giSpace]
     set fQal ::dlr::lib::${libAlias}::${fnName}::
@@ -1047,11 +1165,13 @@ proc ::gi::declareCallToNative {scriptAction  giSpace  returnTypeDescrip  fnName
     set fnInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  GLib  assertion_message]
 #todo: error check
 
+#todo: call to declareInfoP-function for these parts below.
     # query all metadata from GI callable.
 #todo: implement declareCallToNative
 
     # pass callable info to prepMetaBlob
 
+    return {}
 }
 
 proc ::gi::declareSignalHandler {scriptAction  giSpace  returnTypeDescrip  fnName  parmsDescrip} {
