@@ -32,7 +32,7 @@ compile="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -c  \
     -I.  -I../jimsh  -I../dlr/dlrNative-src  -I/usr/include/gobject-introspection-1.0  \
     -DJIM_EMBEDDED  -DBUILD_GIZMO
     `pkg-config --cflags gtk+-3.0`"
-link="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -ldl"
+link="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -ldl -lm -lz"
 linkSO="-pipe -g3 -O$optim -Wall -fPIC -std=c11 -Wl,--export-dynamic  -shared"
 gtkLibs=" `pkg-config --libs gtk+-3.0`  -lgirepository-1.0"
 
