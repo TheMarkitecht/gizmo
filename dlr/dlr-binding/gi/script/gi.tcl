@@ -297,6 +297,16 @@ alias  ::gi::free   dlr::native::giFreeHeap
 }
 # do unref
 
+::dlr::declareCallToNative  cmd  gi  {byVal gint asInt}  g_interface_info_get_n_methods  {
+    {in     byVal   ptr                     info      asInt}
+}
+
+::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_interface_info_get_method {
+    {in     byVal   ptr                     info      asInt}
+    {in     byVal   gint                    n         asInt}
+}
+# do unref
+
 ::dlr::declareCallToNative  cmd  gi  {byVal ptr asInt}  g_type_info_get_param_type  {
     {in     byVal   ptr                     info      asInt}
     {in     byVal   gint                    n         asInt}
@@ -686,6 +696,21 @@ proc ::gi::declareClass {giSpace  scriptClassNameBare  baseClassList  instanceVa
     return [::gi::declareMethodsInfoP  $giSpace  $libAlias  $oInfoP  object  $scriptClassNameBare]
 }
 
+# declares the name of a new GNOME interface.  this is represented as a script class,
+# just like GNOME object types.
+# todo: eliminate this routine?  it's identical to declareClass except for the type on the final line.
+proc ::gi::declareInterface {giSpace  scriptClassNameBare  baseClassList  instanceVarsDict} {
+    ::gi::requireSpace $giSpace
+    set oInfoP [::gi::g_irepository_find_by_name  $::gi::repoP  $giSpace  $scriptClassNameBare]
+    if {$oInfoP == 0} {
+        error "Type not found in '$giSpace': $scriptClassNameBare"
+    }
+    set libAlias [giSpaceToLibAlias $giSpace]
+    set fullCls $libAlias.$scriptClassNameBare
+    class  $fullCls  [list gi.BaseClass {*}$baseClassList]  $instanceVarsDict
+    return [::gi::declareMethodsInfoP  $giSpace  $libAlias  $oInfoP  interface  $scriptClassNameBare]
+}
+
 # this routine is able to defer declaration of any info until later, due to dependence,
 # rather than doing e.g. all structs, then all objects, etc..  that's because
 # there's widespread interdependence across info types, and mutual dependence.  e.g. some
@@ -693,14 +718,12 @@ proc ::gi::declareClass {giSpace  scriptClassNameBare  baseClassList  instanceVa
 # to a function, whose parm is a struct containing an array, whose length is a constant.
 proc ::gi::declareAllInfos {giSpace} {
     set libAlias [giSpaceToLibAlias $giSpace]
-    set infosWithMethods [list object struct union]
+    set infosWithMethods [list object interface struct union]
     set ignores [get ::${libAlias}::ignoreNames]
 
     # build a list of all usable top-level GI info's.
     #todo: expand this to more info types.
-interface
-and write declareInfoP-interface
-    ::gi::forRootInfos  $giSpace  $libAlias  [list object struct union function]  {
+    ::gi::forRootInfos  $giSpace  $libAlias  [list object interface struct union function]  {
         lappend remain [list  $infoP  $infoTypeName  $infoName]
     }
 
@@ -766,6 +789,11 @@ proc ::gi::declareInfoP-object {giSpace  libAlias  infoP  infoTypeName  name} {
     # the other routines called from here accept giSpace rather than libAlias.  that way
     # keeps their syntax minimal when they are called manually in binding scripts.  they can be.
     return [::gi::declareClass  $giSpace  $name  {}  {}]
+    #todo: find base classes first.
+}
+
+proc ::gi::declareInfoP-interface {giSpace  libAlias  infoP  infoTypeName  name} {
+    return [::gi::declareInterface  $giSpace  $name  {}  {}]
     #todo: find base classes first.
 }
 
@@ -875,10 +903,11 @@ puts class=$fullCls
 }
 
 # detects and declares all methods of a type, in bulk.
-proc ::gi::declareMethodsInfoP {giSpace  libAlias  infoP  infoTypeName  infoName} {
+proc ::gi::declareMethodsInfoP {giSpace  libAlias  oInfoP  infoTypeName  infoName} {
     if {$infoTypeName ni {object struct union interface}} {
         error "'$infoName' is a '$infoTypeName' which does not support methods."
     }
+    set fullCls ::$libAlias.$infoName
     set ignores [get ::${libAlias}::ignoreNames]
     set nMeth [::gi::g_${infoTypeName}_info_get_n_methods $oInfoP]
     loop i 0 $nMeth {
